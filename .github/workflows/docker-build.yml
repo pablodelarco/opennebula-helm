@@ -21,7 +21,7 @@ concurrency:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: pablodelarco/opennebula-frontend
+  IMAGE_NAME: pablodelarco/opennebula
 
 jobs:
   detect-version:
