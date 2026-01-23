@@ -41,7 +41,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Pushing code to main branch triggers a new Docker image build
   2. Scheduled workflow detects new OpenNebula releases and triggers rebuild
-  3. Images appear on Docker Hub (pablodelarco/opennebula-frontend) with correct tags
+  3. Images appear on Docker Hub (pablodelarco/opennebula) with correct tags
   4. Builds fail if Trivy finds CRITICAL or HIGH vulnerabilities
   5. Image tags match OpenNebula version (e.g., 7.0.0, latest)
 **Plans**: 2 plans

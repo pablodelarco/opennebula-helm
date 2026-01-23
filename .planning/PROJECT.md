@@ -35,7 +35,7 @@ A production-ready, self-updating OpenNebula deployment on Kubernetes that the c
 ## Context
 
 **Prior work:**
-- Docker image: pablodelarco/opennebula-frontend on Docker Hub (OpenNebula 6.10)
+- Docker image: pablodelarco/opennebula on Docker Hub (OpenNebula 6.10)
 - GitHub repo: https://github.com/pablodelarco/docker_opennebula — contains Dockerfile, Helm chart, and CI workflow that can be upgraded/reused
 
 **Research completed:** OpenNebula architecture analyzed. Key findings:
@@ -52,7 +52,7 @@ A production-ready, self-updating OpenNebula deployment on Kubernetes that the c
 - Production Kubernetes deployments
 
 **Distribution:**
-- Docker image: Docker Hub (pablodelarco/opennebula-frontend)
+- Docker image: Docker Hub (pablodelarco/opennebula)
 - Helm chart: Public Helm repository (method TBD)
 
 ## Constraints
