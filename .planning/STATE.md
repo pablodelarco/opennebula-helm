@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2025-01-23)
 
 **Core value:** A production-ready, self-updating OpenNebula deployment on Kubernetes that the community can use out of the box.
-**Current focus:** Phase 1 - Docker Image (COMPLETE)
+**Current focus:** Phase 2 - CI/CD Pipeline (IN PROGRESS)
 
 ## Current Position
 
-Phase: 1 of 3 (Docker Image) - COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-23 - Completed 01-02-PLAN.md
+Phase: 2 of 3 (CI/CD Pipeline)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-23 - Completed 02-01-PLAN.md
 
-Progress: [##........] 20%
+Progress: [###.......] 30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 23 min
-- Total execution time: 46 min
+- Total plans completed: 3
+- Average duration: 16 min
+- Total execution time: 47 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-docker-image | 2 | 46 min | 23 min |
+| 02-cicd-pipeline | 1 | 1 min | 1 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (45 min)
-- Trend: Build/verification takes longer than file creation
+- Last 5 plans: 01-01 (1 min), 01-02 (45 min), 02-01 (1 min)
+- Trend: Simple file creation tasks complete quickly
 
 *Updated after each plan completion*
 
@@ -50,6 +51,9 @@ Recent decisions affecting current work:
 - [01-02]: sqlite3 to check database bootstrap status before cleanup
 - [01-02]: Remove all auth files on fresh bootstrap to avoid conflicts
 - [01-02]: Pre-create log files with oneadmin ownership before supervisord starts
+- [02-01]: Two-job pipeline (detect-version -> build-scan-push) for clarity
+- [02-01]: Trivy with ignore-unfixed: true for actionable vulnerabilities only
+- [02-01]: GitHub Actions cache for Docker layers (type=gha)
 
 ### Pending Todos
 
@@ -57,10 +61,10 @@ None yet.
 
 ### Blockers/Concerns
 
-None - Phase 1 complete, ready for Phase 2.
+- Docker Hub credentials (DOCKERHUB_USERNAME, DOCKERHUB_TOKEN) required before workflow can push images
 
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 01-02-PLAN.md (Phase 1 complete)
-Resume file: None - ready for Phase 2 (CI/CD Pipeline)
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None - ready for Plan 02 (Testing)
