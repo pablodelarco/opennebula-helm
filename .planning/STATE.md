@@ -5,34 +5,34 @@
 See: .planning/PROJECT.md (updated 2025-01-23)
 
 **Core value:** A production-ready, self-updating OpenNebula deployment on Kubernetes that the community can use out of the box.
-**Current focus:** Phase 2 - CI/CD Pipeline (IN PROGRESS)
+**Current focus:** Phase 2 - CI/CD Pipeline (COMPLETE)
 
 ## Current Position
 
-Phase: 2 of 3 (CI/CD Pipeline)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-23 - Completed 02-01-PLAN.md
+Phase: 2 of 3 (CI/CD Pipeline) - COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-23 - Completed 02-02-PLAN.md
 
-Progress: [###.......] 30%
+Progress: [####......] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 16 min
-- Total execution time: 47 min
+- Total plans completed: 4
+- Average duration: 15 min
+- Total execution time: 62 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-docker-image | 2 | 46 min | 23 min |
-| 02-cicd-pipeline | 1 | 1 min | 1 min |
+| 02-cicd-pipeline | 2 | 16 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (45 min), 02-01 (1 min)
-- Trend: Simple file creation tasks complete quickly
+- Last 5 plans: 01-01 (1 min), 01-02 (45 min), 02-01 (1 min), 02-02 (15 min)
+- Trend: Verification/testing takes longer than file creation
 
 *Updated after each plan completion*
 
@@ -53,7 +53,8 @@ Recent decisions affecting current work:
 - [01-02]: Pre-create log files with oneadmin ownership before supervisord starts
 - [02-01]: Two-job pipeline (detect-version -> build-scan-push) for clarity
 - [02-01]: Trivy with ignore-unfixed: true for actionable vulnerabilities only
-- [02-01]: GitHub Actions cache for Docker layers (type=gha)
+- [02-02]: Changed image name to pablodelarco/opennebula (not opennebula-frontend)
+- [02-02]: Trivy scanners: 'vuln' to ignore intentional SSH keys
 
 ### Pending Todos
 
@@ -61,10 +62,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- Docker Hub credentials (DOCKERHUB_USERNAME, DOCKERHUB_TOKEN) required before workflow can push images
+None - Phase 2 complete, ready for Phase 3.
 
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 02-01-PLAN.md
-Resume file: None - ready for Plan 02 (Testing)
+Stopped at: Completed 02-02-PLAN.md (Phase 2 complete)
+Resume file: None - ready for Phase 3 (Helm Chart Core)

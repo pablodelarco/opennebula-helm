@@ -13,7 +13,7 @@ This roadmap delivers a production-ready OpenNebula Helm chart in 3 phases: firs
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Docker Image** - Build Ubuntu 24.04 image with OpenNebula 7.0 and all services
-- [ ] **Phase 2: CI/CD Pipeline** - Automated builds, release detection, vulnerability scanning
+- [x] **Phase 2: CI/CD Pipeline** - Automated builds, release detection, vulnerability scanning
 - [ ] **Phase 3: Helm Chart Core** - Complete Kubernetes deployment with MariaDB and ingress
 
 ## Phase Details
@@ -47,8 +47,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Create GitHub Actions workflow for Docker builds
-- [ ] 02-02-PLAN.md — Test workflow and verify Docker Hub deployment
+- [x] 02-01-PLAN.md — Create GitHub Actions workflow for Docker builds
+- [x] 02-02-PLAN.md — Test workflow and verify Docker Hub deployment
 
 ### Phase 3: Helm Chart Core
 **Goal**: Users can deploy OpenNebula on Kubernetes with a single helm install command
@@ -73,7 +73,7 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Docker Image | 2/2 | ✓ Complete | 2026-01-23 |
-| 2. CI/CD Pipeline | 0/2 | Planned | - |
+| 2. CI/CD Pipeline | 2/2 | ✓ Complete | 2026-01-23 |
 | 3. Helm Chart Core | 0/? | Not started | - |
 
 ---

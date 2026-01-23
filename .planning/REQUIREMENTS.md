@@ -17,11 +17,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CI/CD Pipeline
 
-- [ ] **CI-01**: GitHub Actions workflow builds Docker image on push/tag
-- [ ] **CI-02**: Scheduled workflow detects new OpenNebula releases and triggers builds
-- [ ] **CI-03**: Images pushed to Docker Hub (pablodelarco/opennebula)
-- [ ] **CI-04**: Trivy vulnerability scanning fails build on CRITICAL/HIGH vulnerabilities
-- [ ] **CI-05**: Docker image tags align with OpenNebula version (e.g., 7.0.0, latest)
+- [x] **CI-01**: GitHub Actions workflow builds Docker image on push/tag
+- [x] **CI-02**: Scheduled workflow detects new OpenNebula releases and triggers builds
+- [x] **CI-03**: Images pushed to Docker Hub (pablodelarco/opennebula)
+- [x] **CI-04**: Trivy vulnerability scanning fails build on CRITICAL/HIGH vulnerabilities
+- [x] **CI-05**: Docker image tags align with OpenNebula version (e.g., 7.0.0, latest)
 
 ### Helm Chart
 
@@ -69,11 +69,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IMG-03 | Phase 1 | Complete |
 | IMG-04 | Phase 1 | Complete |
 | IMG-05 | Phase 1 | Complete |
-| CI-01 | Phase 2 | Pending |
-| CI-02 | Phase 2 | Pending |
-| CI-03 | Phase 2 | Pending |
-| CI-04 | Phase 2 | Pending |
-| CI-05 | Phase 2 | Pending |
+| CI-01 | Phase 2 | Complete |
+| CI-02 | Phase 2 | Complete |
+| CI-03 | Phase 2 | Complete |
+| CI-04 | Phase 2 | Complete |
+| CI-05 | Phase 2 | Complete |
 | HELM-01 | Phase 3 | Pending |
 | HELM-02 | Phase 3 | Pending |
 | HELM-03 | Phase 3 | Pending |
@@ -89,4 +89,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2025-01-23*
-*Last updated: 2026-01-23 - Phase 1 requirements complete*
+*Last updated: 2026-01-23 - Phase 2 requirements complete*
