@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-23)
 ## Current Position
 
 Phase: 3 of 3 (Helm Chart Core) - IN PROGRESS
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-24 - Completed 03-01-PLAN.md
+Last activity: 2026-01-24 - Completed 03-02-PLAN.md
 
-Progress: [#####.....] 50%
+Progress: [######....] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 13 min
-- Total execution time: 64 min
+- Total plans completed: 6
+- Average duration: 12 min
+- Total execution time: 70 min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [#####.....] 50%
 |-------|-------|-------|----------|
 | 01-docker-image | 2 | 46 min | 23 min |
 | 02-cicd-pipeline | 2 | 16 min | 8 min |
-| 03-helm-chart-core | 1 | 2 min | 2 min |
+| 03-helm-chart-core | 2 | 8 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (45 min), 02-01 (1 min), 02-02 (15 min), 03-01 (2 min)
-- Trend: Scaffold creation fast, verification/testing takes longer
+- Last 5 plans: 02-01 (1 min), 02-02 (15 min), 03-01 (2 min), 03-02 (6 min)
+- Trend: Template creation efficient, Helm dependency issues added overhead
 
 *Updated after each plan completion*
 
@@ -59,6 +59,10 @@ Recent decisions affecting current work:
 - [03-01]: OCI registry for MariaDB dependency (Bitnami format)
 - [03-01]: mariadb.enabled=true by default (simplest quickstart)
 - [03-01]: externalDatabase section for production managed databases
+- [03-02]: InitContainer with busybox nc for MariaDB wait
+- [03-02]: oneuser show 0 for health probes (exec-based)
+- [03-02]: lookup function for secret persistence across upgrades
+- [03-02]: Headless service for StatefulSet stable network identity
 
 ### Pending Todos
 
@@ -66,10 +70,10 @@ None.
 
 ### Blockers/Concerns
 
-None - 03-01 complete, ready for 03-02 (StatefulSet + Services).
+None - 03-02 complete, ready for 03-03 (Ingress + optional components).
 
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 03-01-PLAN.md
-Resume file: None - ready for 03-02-PLAN.md
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None - ready for 03-03-PLAN.md
