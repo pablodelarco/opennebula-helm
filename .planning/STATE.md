@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-23)
 ## Current Position
 
 Phase: 3 of 3 (Helm Chart Core) - IN PROGRESS
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-24 - Completed 03-02-PLAN.md
+Last activity: 2026-01-24 - Completed 03-03-PLAN.md
 
-Progress: [######....] 60%
+Progress: [#######...] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 12 min
-- Total execution time: 70 min
+- Total plans completed: 7
+- Average duration: 11 min
+- Total execution time: 72 min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [######....] 60%
 |-------|-------|-------|----------|
 | 01-docker-image | 2 | 46 min | 23 min |
 | 02-cicd-pipeline | 2 | 16 min | 8 min |
-| 03-helm-chart-core | 2 | 8 min | 4 min |
+| 03-helm-chart-core | 3 | 10 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (1 min), 02-02 (15 min), 03-01 (2 min), 03-02 (6 min)
-- Trend: Template creation efficient, Helm dependency issues added overhead
+- Last 5 plans: 02-02 (15 min), 03-01 (2 min), 03-02 (6 min), 03-03 (2 min)
+- Trend: Helm template creation very efficient
 
 *Updated after each plan completion*
 
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - [03-02]: oneuser show 0 for health probes (exec-based)
 - [03-02]: lookup function for secret persistence across upgrades
 - [03-02]: Headless service for StatefulSet stable network identity
+- [03-03]: networking.k8s.io/v1 API for Ingress (modern, not deprecated)
+- [03-03]: busybox wget for Helm test with 5s timeout
 
 ### Pending Todos
 
@@ -70,10 +72,10 @@ None.
 
 ### Blockers/Concerns
 
-None - 03-02 complete, ready for 03-03 (Ingress + optional components).
+None - 03-03 complete, ready for 03-04 (production defaults and documentation).
 
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 03-02-PLAN.md
-Resume file: None - ready for 03-03-PLAN.md
+Stopped at: Completed 03-03-PLAN.md
+Resume file: None - ready for 03-04-PLAN.md
