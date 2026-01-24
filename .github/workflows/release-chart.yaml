@@ -31,15 +31,15 @@ jobs:
       - name: Build Helm dependencies
         run: |
           set -ex
+          # Create charts directory
+          mkdir -p charts/opennebula/charts/
+
           # Pull mariadb chart explicitly from OCI registry
           helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 14.0.3 --destination charts/opennebula/charts/
 
           # Verify download
           echo "Downloaded charts:"
           ls -la charts/opennebula/charts/
-
-          # Extract if needed (helm dependency build expects extracted chart or .tgz)
-          echo "Chart ready for packaging"
 
       - name: Package charts
         run: |
