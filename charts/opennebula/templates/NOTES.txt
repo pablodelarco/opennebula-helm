@@ -1,0 +1,34 @@
+OpenNebula has been installed!
+
+{{- if .Values.mariadb.enabled }}
+MariaDB is deployed as a subchart.
+{{- end }}
+
+To access the OpenNebula services:
+
+1. Get the FireEdge web UI URL:
+{{- if .Values.ingress.enabled }}
+   http://{{ .Values.ingress.hostname }}
+{{- else }}
+   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 2616:2616
+   Then visit: http://localhost:2616
+{{- end }}
+
+2. Access the oned API:
+   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 2633:2633
+   oneuser show 0 --endpoint http://localhost:2633
+
+3. Default credentials:
+   Username: oneadmin
+   Password: {{ .Values.opennebula.adminPassword }}
+
+   IMPORTANT: Change the admin password in production!
+
+4. Check pod status:
+   kubectl get pods -l app.kubernetes.io/name={{ include "opennebula.name" . }},app.kubernetes.io/instance={{ .Release.Name }}
+
+5. View logs:
+   kubectl logs -f statefulset/{{ include "opennebula.fullname" . }}
+
+For more information, visit:
+https://github.com/pablodelarco/opennebula-helm
