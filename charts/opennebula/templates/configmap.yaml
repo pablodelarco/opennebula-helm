@@ -1,0 +1,18 @@
+{{/*
+ConfigMap for OpenNebula configuration files.
+Note: Main oned.conf database config is handled by entrypoint.sh via environment variables.
+This ConfigMap provides optional configuration overrides.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opennebula.fullname" . }}-config
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+data:
+  # Placeholder for custom configuration files
+  # Example usage:
+  # oned.conf: |
+  #   # Custom oned.conf overrides
+  #   # These would be merged with container defaults
+  _placeholder: "Configuration files can be added here"
