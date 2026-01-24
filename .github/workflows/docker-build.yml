@@ -93,6 +93,7 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
           scanners: 'vuln'
+          trivyignores: 'docker/.trivyignore'
 
       - name: Build and push
         uses: docker/build-push-action@v6

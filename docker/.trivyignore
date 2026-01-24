@@ -1,0 +1,6 @@
+# Ignore vulnerabilities in third-party binaries from OpenNebula packages
+# These are bundled by OpenNebula and we cannot update them directly
+# The restic binary is used for backup functionality
+
+# Restic binary vulnerabilities (bundled with opennebula package)
+usr/share/one/remotes-dist/datastore/restic/restic
