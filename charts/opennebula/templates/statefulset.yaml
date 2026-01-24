@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "opennebula.fullname" . }}
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "opennebula.fullname" . }}-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "opennebula.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "opennebula.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- if .Values.mariadb.enabled }}
+        - name: wait-for-mariadb
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "opennebula.mariadb.host" . }} 3306; do
+                echo "Waiting for MariaDB..."
+                sleep 5
+              done
+              echo "MariaDB is available"
+        {{- end }}
+      containers:
+        - name: opennebula
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: oned
+              containerPort: 2633
+              protocol: TCP
+            - name: sunstone
+              containerPort: 9869
+              protocol: TCP
+            - name: fireedge
+              containerPort: 2616
+              protocol: TCP
+            - name: oneflow
+              containerPort: 2474
+              protocol: TCP
+            - name: onegate
+              containerPort: 5030
+              protocol: TCP
+          env:
+            - name: ONEADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "opennebula.fullname" . }}-credentials
+                  key: oneadmin-password
+            - name: DB_BACKEND
+              value: "mysql"
+            - name: DB_HOST
+              value: {{ include "opennebula.mariadb.host" . | quote }}
+            - name: DB_PORT
+              value: {{ include "opennebula.mariadb.port" . | quote }}
+            - name: DB_USER
+              value: {{ include "opennebula.mariadb.username" . | quote }}
+            - name: DB_NAME
+              value: {{ include "opennebula.mariadb.database" . | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "opennebula.mariadb.secretName" . }}
+                  key: mariadb-password
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - oneuser show 0 > /dev/null 2>&1
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - oneuser show 0 > /dev/null 2>&1
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/one
+            {{- if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+            - name: ssh-keys
+              mountPath: /var/lib/one/.ssh-secret
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+        - name: ssh-keys
+          secret:
+            secretName: {{ include "opennebula.fullname" . }}-ssh
+            defaultMode: 0600
+        {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode | default "ReadWriteOnce" }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | default "20Gi" }}
+  {{- end }}
