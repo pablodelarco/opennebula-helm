@@ -30,7 +30,7 @@ jobs:
       - name: Build Helm dependencies
         run: |
           mkdir -p charts/opennebula/charts/
-          helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 14.0.3 --untar --untardir charts/opennebula/charts/
+          helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 24.0.3 --untar --untardir charts/opennebula/charts/
           ls -la charts/opennebula/charts/
 
       - name: Package chart
