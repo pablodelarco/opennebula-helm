@@ -37,6 +37,10 @@ RUN apt-get update && RUNLEVEL=1 apt-get install -y --no-install-recommends \
     opennebula-tools \
     && rm -rf /var/lib/apt/lists/*
 
+# Preserve remotes directory before PV mount overwrites it
+# The remotes directory contains scheduler scripts needed by oned
+RUN cp -a /var/lib/one/remotes /usr/share/one/remotes-dist
+
 # Create required directories with proper ownership
 RUN mkdir -p /var/log/one && \
     chown -R oneadmin:oneadmin /var/log/one && \
