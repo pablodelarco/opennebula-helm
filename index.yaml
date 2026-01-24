@@ -1,0 +1,26 @@
+apiVersion: v1
+entries:
+  opennebula:
+  - apiVersion: v2
+    appVersion: 7.0.0
+    created: "2026-01-24T17:59:44.418423398Z"
+    dependencies:
+    - condition: mariadb.enabled
+      name: mariadb
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: ~14.0
+    description: A Helm chart for OpenNebula cloud management platform
+    digest: 96c3007690596423e02dfbe7aac05d15b961b5b0afd947343def06724d6c424f
+    home: https://github.com/pablodelarco/opennebula-helm
+    keywords:
+    - opennebula
+    - cloud
+    - virtualization
+    maintainers:
+    - name: pablodelarco
+    name: opennebula
+    type: application
+    urls:
+    - https://github.com/pablodelarco/opennebula-helm/releases/download/opennebula-0.1.5/opennebula-0.1.5.tgz
+    version: 0.1.5
+generated: "2026-01-24T17:59:44.418433186Z"
