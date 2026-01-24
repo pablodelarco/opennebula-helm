@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-23)
 
 **Core value:** A production-ready, self-updating OpenNebula deployment on Kubernetes that the community can use out of the box.
-**Current focus:** Phase 2 - CI/CD Pipeline (COMPLETE)
+**Current focus:** Phase 3 - Helm Chart Core (IN PROGRESS)
 
 ## Current Position
 
-Phase: 2 of 3 (CI/CD Pipeline) - COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-23 - Completed 02-02-PLAN.md
+Phase: 3 of 3 (Helm Chart Core) - IN PROGRESS
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-24 - Completed 03-01-PLAN.md
 
-Progress: [####......] 40%
+Progress: [#####.....] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 15 min
-- Total execution time: 62 min
+- Total plans completed: 5
+- Average duration: 13 min
+- Total execution time: 64 min
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [####......] 40%
 |-------|-------|-------|----------|
 | 01-docker-image | 2 | 46 min | 23 min |
 | 02-cicd-pipeline | 2 | 16 min | 8 min |
+| 03-helm-chart-core | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (45 min), 02-01 (1 min), 02-02 (15 min)
-- Trend: Verification/testing takes longer than file creation
+- Last 5 plans: 01-02 (45 min), 02-01 (1 min), 02-02 (15 min), 03-01 (2 min)
+- Trend: Scaffold creation fast, verification/testing takes longer
 
 *Updated after each plan completion*
 
@@ -55,17 +56,20 @@ Recent decisions affecting current work:
 - [02-01]: Trivy with ignore-unfixed: true for actionable vulnerabilities only
 - [02-02]: Changed image name to pablodelarco/opennebula (not opennebula-frontend)
 - [02-02]: Trivy scanners: 'vuln' to ignore intentional SSH keys
+- [03-01]: OCI registry for MariaDB dependency (Bitnami format)
+- [03-01]: mariadb.enabled=true by default (simplest quickstart)
+- [03-01]: externalDatabase section for production managed databases
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-None - Phase 2 complete, ready for Phase 3.
+None - 03-01 complete, ready for 03-02 (StatefulSet + Services).
 
 ## Session Continuity
 
-Last session: 2026-01-23
-Stopped at: Completed 02-02-PLAN.md (Phase 2 complete)
-Resume file: None - ready for Phase 3 (Helm Chart Core)
+Last session: 2026-01-24
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None - ready for 03-02-PLAN.md
