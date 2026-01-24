@@ -1,0 +1,96 @@
+# OpenNebula Helm Chart Values
+# See: https://github.com/pablodelarco/opennebula-helm
+
+## Image configuration
+image:
+  repository: pablodelarco/opennebula
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+## OpenNebula settings
+opennebula:
+  ## Admin password for oneadmin user
+  ## Default: opennebula (override in production!)
+  adminPassword: "opennebula"
+
+## MariaDB subchart configuration
+## ref: https://github.com/bitnami/charts/tree/main/bitnami/mariadb
+mariadb:
+  enabled: true
+  architecture: standalone
+  auth:
+    database: opennebula
+    username: oneadmin
+    ## Password is auto-generated if not set
+    # password: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+## External database configuration (when mariadb.enabled=false)
+## Required fields when using external database
+externalDatabase:
+  host: ""
+  port: 3306
+  database: opennebula
+  username: oneadmin
+  ## Password for external database
+  password: ""
+  ## Or use existing secret (takes precedence over password)
+  ## Secret must contain key 'mariadb-password'
+  existingSecret: ""
+
+## Persistence for OpenNebula data (/var/lib/one)
+persistence:
+  enabled: true
+  size: 20Gi
+  ## storageClass: ""  # Use cluster default
+  accessMode: ReadWriteOnce
+
+## Service configuration
+service:
+  type: ClusterIP
+  ## Ports exposed
+  ## oned: 2633, sunstone: 9869, fireedge: 2616
+  ## oneflow: 2474, onegate: 5030
+
+## Ingress configuration for FireEdge web UI
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hostname: opennebula.local
+  ## TLS not supported in v1
+
+## SSH keys for hypervisor communication
+## If not provided, keys will be generated and stored in a persistent secret
+ssh:
+  ## Provide existing keys (base64 encoded)
+  # privateKey: ""
+  # publicKey: ""
+
+## Resource limits and requests
+## No defaults - set based on your environment
+resources: {}
+  # limits:
+  #   cpu: 2
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 500m
+  #   memory: 1Gi
+
+## Pod security context
+podSecurityContext: {}
+
+## Container security context
+securityContext: {}
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity
+affinity: {}
