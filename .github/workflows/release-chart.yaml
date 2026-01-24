@@ -12,7 +12,6 @@ jobs:
   release:
     permissions:
       contents: write
-      pages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,52 +24,108 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Create gh-pages branch if missing
-        run: |
-          if ! git ls-remote --heads origin gh-pages | grep -q gh-pages; then
-            echo "Creating gh-pages branch..."
-            git checkout --orphan gh-pages
-            git rm -rf .
-            echo "# Helm Chart Repository" > README.md
-            git add README.md
-            git commit -m "Initialize gh-pages branch"
-            git push origin gh-pages
-            git checkout main
-          else
-            echo "gh-pages branch already exists"
-          fi
-
       - name: Install Helm
         uses: azure/setup-helm@v4
 
       - name: Build Helm dependencies
         run: |
-          set -ex
-          # Create charts directory
           mkdir -p charts/opennebula/charts/
-
-          # Pull mariadb chart explicitly from OCI registry and extract
           helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 14.0.3 --untar --untardir charts/opennebula/charts/
-
-          # Verify download
-          echo "Downloaded charts:"
           ls -la charts/opennebula/charts/
 
-      - name: Package charts
+      - name: Package chart
         run: |
-          set -ex
-          mkdir -p .cr-release-packages
-          for chart in charts/*/; do
-            echo "Packaging $chart"
-            helm package "$chart" --destination .cr-release-packages
-          done
-          echo "Packaged charts:"
-          ls -la .cr-release-packages/
+          helm package charts/opennebula --destination /tmp/packages
+          ls -la /tmp/packages/
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          charts_dir: charts
-          skip_packaging: true
+      - name: Get chart info
+        id: chart
+        run: |
+          VERSION=$(helm show chart charts/opennebula | grep '^version:' | awk '{print $2}')
+          APP_VERSION=$(helm show chart charts/opennebula | grep '^appVersion:' | awk '{print $2}' | tr -d '"')
+          DESCRIPTION=$(helm show chart charts/opennebula | grep '^description:' | cut -d: -f2- | xargs)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "Chart version: $VERSION, appVersion: $APP_VERSION"
+
+      - name: Check if release exists
+        id: check
+        run: |
+          if gh release view "opennebula-${{ steps.chart.outputs.version }}" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          gh release create "opennebula-${{ steps.chart.outputs.version }}" \
+            /tmp/packages/opennebula-${{ steps.chart.outputs.version }}.tgz \
+            --title "opennebula-${{ steps.chart.outputs.version }}" \
+            --notes "OpenNebula Helm chart version ${{ steps.chart.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup gh-pages branch
+        run: |
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+            touch .nojekyll
+          fi
+
+      - name: Generate Helm repo index
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}/releases/download"
+
+          # Start index.yaml
+          echo "apiVersion: v1" > index.yaml
+          echo "entries:" >> index.yaml
+          echo "  opennebula:" >> index.yaml
+
+          # Add entry for each release
+          for release in $(gh release list --json tagName -q '.[].tagName' | sort -V); do
+            if [[ "$release" == opennebula-* ]]; then
+              VERSION="${release#opennebula-}"
+              CREATED=$(gh release view "$release" --json createdAt -q '.createdAt')
+
+              # Get digest from the tgz file
+              mkdir -p /tmp/dl
+              gh release download "$release" --dir /tmp/dl --pattern "*.tgz" 2>/dev/null || continue
+              DIGEST=$(sha256sum /tmp/dl/*.tgz | awk '{print $1}')
+              rm -rf /tmp/dl
+
+              echo "  - apiVersion: v2" >> index.yaml
+              echo "    appVersion: \"${{ steps.chart.outputs.app_version }}\"" >> index.yaml
+              echo "    created: \"$CREATED\"" >> index.yaml
+              echo "    description: \"${{ steps.chart.outputs.description }}\"" >> index.yaml
+              echo "    digest: $DIGEST" >> index.yaml
+              echo "    name: opennebula" >> index.yaml
+              echo "    type: application" >> index.yaml
+              echo "    urls:" >> index.yaml
+              echo "    - ${REPO_URL}/${release}/opennebula-${VERSION}.tgz" >> index.yaml
+              echo "    version: \"$VERSION\"" >> index.yaml
+            fi
+          done
+
+          # Add generated timestamp
+          echo "generated: \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> index.yaml
+
+          echo "=== Generated index.yaml ==="
+          cat index.yaml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push index
+        run: |
+          git add index.yaml
+          git add .nojekyll 2>/dev/null || true
+          git commit -m "Update Helm repo index" || echo "No changes to commit"
+          git push origin gh-pages
