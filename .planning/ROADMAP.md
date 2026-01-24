@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Docker Image** - Build Ubuntu 24.04 image with OpenNebula 7.0 and all services
 - [x] **Phase 2: CI/CD Pipeline** - Automated builds, release detection, vulnerability scanning
-- [ ] **Phase 3: Helm Chart Core** - Complete Kubernetes deployment with MariaDB and ingress
+- [x] **Phase 3: Helm Chart Core** - Complete Kubernetes deployment with MariaDB and ingress
 
 ## Phase Details
 
@@ -63,10 +63,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Create chart skeleton (Chart.yaml, values.yaml, _helpers.tpl)
-- [ ] 03-02-PLAN.md — Create core templates (StatefulSet, Service, ConfigMap, Secret)
-- [ ] 03-03-PLAN.md — Create Ingress, NOTES.txt, and Helm test
-- [ ] 03-04-PLAN.md — Setup chart publishing (GitHub Actions for chart-releaser)
+- [x] 03-01-PLAN.md — Create chart skeleton (Chart.yaml, values.yaml, _helpers.tpl)
+- [x] 03-02-PLAN.md — Create core templates (StatefulSet, Service, ConfigMap, Secret)
+- [x] 03-03-PLAN.md — Create Ingress, NOTES.txt, and Helm test
+- [x] 03-04-PLAN.md — Setup chart publishing (GitHub Actions for chart-releaser)
 
 ## Progress
 
@@ -77,7 +77,7 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Docker Image | 2/2 | ✓ Complete | 2026-01-23 |
 | 2. CI/CD Pipeline | 2/2 | ✓ Complete | 2026-01-23 |
-| 3. Helm Chart Core | 0/4 | Not started | - |
+| 3. Helm Chart Core | 4/4 | Complete | 2026-01-24 |
 
 ---
 *Roadmap created: 2025-01-23*
