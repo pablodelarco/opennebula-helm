@@ -34,8 +34,8 @@ jobs:
           # Create charts directory
           mkdir -p charts/opennebula/charts/
 
-          # Pull mariadb chart explicitly from OCI registry
-          helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 14.0.3 --destination charts/opennebula/charts/
+          # Pull mariadb chart explicitly from OCI registry and extract
+          helm pull oci://registry-1.docker.io/bitnamicharts/mariadb --version 14.0.3 --untar --untardir charts/opennebula/charts/
 
           # Verify download
           echo "Downloaded charts:"
