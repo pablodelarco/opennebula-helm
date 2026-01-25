@@ -123,12 +123,36 @@ spec:
               mountPath: /var/lib/one/.ssh-secret
               readOnly: true
             {{- end }}
+        {{- if .Values.fireedgeProxy.enabled }}
+        - name: fireedge-proxy
+          image: "{{ .Values.fireedgeProxy.image.repository }}:{{ .Values.fireedgeProxy.image.tag }}"
+          ports:
+            - name: proxy
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          resources:
+            {{- toYaml .Values.fireedgeProxy.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+        {{- end }}
       volumes:
         {{- if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
         - name: ssh-keys
           secret:
             secretName: {{ include "opennebula.fullname" . }}-ssh
             defaultMode: 0600
+        {{- end }}
+        {{- if .Values.fireedgeProxy.enabled }}
+        - name: proxy-config
+          configMap:
+            name: {{ include "opennebula.fullname" . }}-proxy-config
         {{- end }}
   {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:

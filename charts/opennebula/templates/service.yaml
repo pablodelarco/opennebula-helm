@@ -31,7 +31,7 @@ spec:
       targetPort: 2633
       name: oned
     - port: 2616
-      targetPort: 2616
+      targetPort: {{ if .Values.fireedgeProxy.enabled }}8080{{ else }}2616{{ end }}
       name: fireedge
     - port: 2474
       targetPort: 2474

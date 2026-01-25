@@ -4,31 +4,65 @@ OpenNebula has been installed!
 MariaDB is deployed as a subchart.
 {{- end }}
 
-To access the OpenNebula services:
+To access the OpenNebula web UI (FireEdge/Sunstone):
 
-1. Get the FireEdge web UI URL:
 {{- if .Values.ingress.enabled }}
-   http://{{ .Values.ingress.hostname }}
+{{- if .Values.ingress.tls.enabled }}
+   https://{{ .Values.ingress.hostname }}/fireedge/sunstone
 {{- else }}
-   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 2616:2616
-   Then visit: http://localhost:2616
+   http://{{ .Values.ingress.hostname }}/fireedge/sunstone
+{{- end }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   # Get the external IP:
+   kubectl get svc {{ include "opennebula.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+   # Then visit: http://<EXTERNAL-IP>:2616/fireedge/sunstone
+{{- else if eq .Values.service.type "NodePort" }}
+   # Get the NodePort:
+   kubectl get svc {{ include "opennebula.fullname" . }} -o jsonpath='{.spec.ports[?(@.name=="fireedge")].nodePort}'
+
+   # Then visit: http://<NODE-IP>:<NODE-PORT>/fireedge/sunstone
+{{- else }}
+   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 8080:2616
+
+   Then visit: http://localhost:8080/fireedge/sunstone
 {{- end }}
 
-2. Access the oned API:
-   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 2633:2633
-   oneuser show 0 --endpoint http://localhost:2633
+{{- if .Values.fireedgeProxy.enabled }}
 
-3. Default credentials:
+FireEdge Proxy: ENABLED (auto-detection mode)
+   The nginx sidecar automatically replaces __HOST__ placeholders with the
+   URL you use to access the web UI. Works with port-forward, NodePort,
+   LoadBalancer, and Ingress without any additional configuration.
+{{- if .Values.fireedgeProxy.publicURL }}
+   Public URL override: {{ .Values.fireedgeProxy.publicURL }}
+{{- end }}
+{{- else }}
+
+WARNING: FireEdge Proxy is DISABLED
+   The web UI may not function correctly. The __HOST__ placeholder in
+   FireEdge responses won't be replaced. Enable fireedgeProxy or configure
+   an external reverse proxy with sub_filter support.
+{{- end }}
+
+Default credentials:
    Username: oneadmin
    Password: {{ .Values.opennebula.adminPassword }}
 
    IMPORTANT: Change the admin password in production!
 
-4. Check pod status:
+Access the oned API:
+   kubectl port-forward svc/{{ include "opennebula.fullname" . }} 2633:2633
+   oneuser show 0 --endpoint http://localhost:2633
+
+Check pod status:
    kubectl get pods -l app.kubernetes.io/name={{ include "opennebula.name" . }},app.kubernetes.io/instance={{ .Release.Name }}
 
-5. View logs:
-   kubectl logs -f statefulset/{{ include "opennebula.fullname" . }}
+View logs:
+   kubectl logs -f statefulset/{{ include "opennebula.fullname" . }} -c opennebula
+{{- if .Values.fireedgeProxy.enabled }}
+   kubectl logs -f statefulset/{{ include "opennebula.fullname" . }} -c fireedge-proxy
+{{- end }}
 
 For more information, visit:
 https://github.com/pablodelarco/opennebula-helm
