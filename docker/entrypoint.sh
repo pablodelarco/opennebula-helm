@@ -41,6 +41,16 @@ if [ ! -f /var/lib/one/.ssh/id_rsa ]; then
     chmod 600 /var/lib/one/.ssh/authorized_keys
 fi
 
+# Configure SSH to accept new host keys automatically
+# This allows oned to connect to newly provisioned hypervisors without manual ssh-keyscan
+cat > /var/lib/one/.ssh/config << 'EOF'
+Host *
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile ~/.ssh/known_hosts
+EOF
+chown oneadmin:oneadmin /var/lib/one/.ssh/config
+chmod 600 /var/lib/one/.ssh/config
+
 # ----------------------------------------------------------------------------
 # Authentication Files Setup
 # ----------------------------------------------------------------------------
