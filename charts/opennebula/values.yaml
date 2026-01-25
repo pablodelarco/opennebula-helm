@@ -135,6 +135,16 @@ onedeploy:
   enabled: false
 
   ## --------------------------------------------------------
+  ## SSH Host Key Handling (automatic)
+  ## --------------------------------------------------------
+  ## The OpenNebula frontend is configured with StrictHostKeyChecking=accept-new
+  ## which automatically adds new hypervisor host keys to known_hosts on first
+  ## connection. This eliminates the need for manual ssh-keyscan.
+  ##
+  ## For additional security, you can pre-populate known_hosts by providing
+  ## the host keys in a ConfigMap (advanced use case, not required for most deployments).
+
+  ## --------------------------------------------------------
   ## Global Variables (maps to all.vars in OneDeploy)
   ## --------------------------------------------------------
   vars:
