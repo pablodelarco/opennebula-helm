@@ -1,0 +1,114 @@
+{{/*
+SSH Key Generation Job
+Runs as pre-install hook to generate SSH key pair when:
+- onedeploy.enabled=true
+- ssh.autoGenerate=true (default)
+- No manual SSH keys are provided
+*/}}
+{{- $hasManualKey := or .Values.onedeploy.provisioner.ssh.privateKey .Values.onedeploy.provisioner.ssh.existingSecret }}
+{{- $hasUserSSH := and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+{{- $shouldAutoGenerate := and .Values.onedeploy.enabled (default true .Values.ssh.autoGenerate) (not $hasManualKey) (not $hasUserSSH) }}
+{{- if $shouldAutoGenerate }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "opennebula.fullname" . }}-ssh-keygen
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "opennebula.fullname" . }}-ssh-keygen
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "opennebula.fullname" . }}-ssh-keygen
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "opennebula.fullname" . }}-ssh-keygen
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opennebula.fullname" . }}-ssh-keygen
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "opennebula.fullname" . }}-ssh-keygen
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-keygen
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "opennebula.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-keygen
+    spec:
+      serviceAccountName: {{ include "opennebula.fullname" . }}-ssh-keygen
+      restartPolicy: OnFailure
+      containers:
+        - name: keygen
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              SECRET_NAME="{{ include "opennebula.fullname" . }}-ssh-generated"
+              NAMESPACE="{{ .Release.Namespace }}"
+
+              echo "Checking if secret ${SECRET_NAME} already exists..."
+              if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" 2>/dev/null; then
+                echo "Secret already exists, skipping generation"
+                exit 0
+              fi
+
+              echo "Generating SSH key pair..."
+              ssh-keygen -t ed25519 -f /tmp/id_rsa -N "" -C "oneadmin@opennebula"
+
+              echo "Creating secret ${SECRET_NAME}..."
+              kubectl create secret generic "${SECRET_NAME}" \
+                --namespace="${NAMESPACE}" \
+                --from-file=id_rsa=/tmp/id_rsa \
+                --from-file=id_rsa.pub=/tmp/id_rsa.pub
+
+              echo "SSH key pair generated and stored in secret ${SECRET_NAME}"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+{{- end }}
