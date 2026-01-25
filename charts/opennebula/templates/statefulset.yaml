@@ -118,7 +118,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/one
-            {{- if or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
+            {{- $hasManualSSH := or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
+            {{- $hasAutoSSH := and .Values.onedeploy.enabled (default true .Values.ssh.autoGenerate) (not .Values.onedeploy.provisioner.ssh.existingSecret) (not .Values.onedeploy.provisioner.ssh.privateKey) (not (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey))) }}
+            {{- if or $hasManualSSH $hasAutoSSH }}
             - name: ssh-keys
               mountPath: /var/lib/one/.ssh-secret
               readOnly: true
@@ -143,13 +145,17 @@ spec:
             periodSeconds: 10
         {{- end }}
       volumes:
-        {{- if or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
+        {{- $hasManualSSH := or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
+        {{- $hasAutoSSH := and .Values.onedeploy.enabled (default true .Values.ssh.autoGenerate) (not .Values.onedeploy.provisioner.ssh.existingSecret) (not .Values.onedeploy.provisioner.ssh.privateKey) (not (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey))) }}
+        {{- if or $hasManualSSH $hasAutoSSH }}
         - name: ssh-keys
           secret:
             {{- if and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey }}
             secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
-            {{- else }}
+            {{- else if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
             secretName: {{ include "opennebula.fullname" . }}-ssh
+            {{- else }}
+            secretName: {{ include "opennebula.fullname" . }}-ssh-generated
             {{- end }}
             defaultMode: 0600
         {{- end }}
