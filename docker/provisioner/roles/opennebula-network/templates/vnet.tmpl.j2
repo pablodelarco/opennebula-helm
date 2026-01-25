@@ -1,0 +1,32 @@
+NAME = "{{ item.key }}"
+{% if item.value.template.VN_MAD is defined %}
+VN_MAD = "{{ item.value.template.VN_MAD }}"
+{% endif %}
+{% if item.value.template.PHYDEV is defined %}
+PHYDEV = "{{ item.value.template.PHYDEV }}"
+{% endif %}
+{% if item.value.template.BRIDGE is defined %}
+BRIDGE = "{{ item.value.template.BRIDGE }}"
+{% endif %}
+{% if item.value.template.VLAN_ID is defined %}
+VLAN_ID = "{{ item.value.template.VLAN_ID }}"
+{% endif %}
+{% if item.value.template.NETWORK_ADDRESS is defined %}
+NETWORK_ADDRESS = "{{ item.value.template.NETWORK_ADDRESS }}"
+{% endif %}
+{% if item.value.template.NETWORK_MASK is defined %}
+NETWORK_MASK = "{{ item.value.template.NETWORK_MASK }}"
+{% endif %}
+{% if item.value.template.GATEWAY is defined %}
+GATEWAY = "{{ item.value.template.GATEWAY }}"
+{% endif %}
+{% if item.value.template.DNS is defined %}
+DNS = "{{ item.value.template.DNS }}"
+{% endif %}
+{% if item.value.template.AR is defined %}
+AR = [
+  TYPE = "{{ item.value.template.AR.TYPE | default('IP4') }}",
+  IP = "{{ item.value.template.AR.IP }}",
+  SIZE = "{{ item.value.template.AR.SIZE }}"
+]
+{% endif %}

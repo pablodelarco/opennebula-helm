@@ -1,0 +1,52 @@
+---
+# OpenNebula Virtual Network Creation Role
+# Creates virtual networks defined in the inventory
+
+- name: Display virtual networks to create
+  ansible.builtin.debug:
+    msg: "Will create virtual network: {{ item.key }}"
+  loop: "{{ vn | dict2items }}"
+  when: item.value.managed | default(true)
+
+- name: Create virtual network template files
+  ansible.builtin.template:
+    src: vnet.tmpl.j2
+    dest: "/tmp/vnet_{{ item.key }}.tmpl"
+    mode: '0644'
+  loop: "{{ vn | dict2items }}"
+  when: item.value.managed | default(true)
+  delegate_to: localhost
+
+- name: Create virtual networks via API
+  ansible.builtin.shell: |
+    # Read the template
+    TEMPLATE=$(cat /tmp/vnet_{{ item.key }}.tmpl)
+
+    # Create network via XML-RPC (simplified - uses oneadmin session)
+    # In production, this would use proper API authentication
+    curl -s -X POST \
+      -H "Content-Type: application/xml" \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.vn.allocate</methodName>
+        <params>
+          <param><value><string>oneadmin:opennebula</string></value></param>
+          <param><value><string>${TEMPLATE}</string></value></param>
+          <param><value><int>-1</int></value></param>
+        </params>
+      </methodCall>" || true
+  args:
+    executable: /bin/bash
+  loop: "{{ vn | dict2items }}"
+  when: item.value.managed | default(true)
+  delegate_to: localhost
+  register: vnet_result
+  changed_when: "'true' in vnet_result.stdout"
+  failed_when: false
+
+- name: Display network creation results
+  ansible.builtin.debug:
+    msg: "Network {{ item.item.key }}: {{ 'created' if item.changed else 'already exists or skipped' }}"
+  loop: "{{ vnet_result.results | default([]) }}"
+  when: vnet_result.results is defined

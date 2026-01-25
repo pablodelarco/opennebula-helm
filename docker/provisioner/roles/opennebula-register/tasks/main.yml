@@ -1,0 +1,100 @@
+---
+# OpenNebula Host Registration Role
+# Registers provisioned hosts with the OpenNebula front-end
+
+- name: Build list of hosts to register
+  ansible.builtin.set_fact:
+    hosts_to_register: "{{ groups['all'] | difference(['localhost']) | list }}"
+
+- name: Display hosts to register
+  ansible.builtin.debug:
+    msg: "Will register {{ hosts_to_register | length }} host(s): {{ hosts_to_register | join(', ') }}"
+
+- name: Wait for SSH connectivity to hosts
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[item]['ansible_host'] }}"
+    port: 22
+    timeout: 60
+  loop: "{{ hosts_to_register }}"
+  delegate_to: localhost
+
+- name: Register hosts with OpenNebula
+  ansible.builtin.shell: |
+    # Get virtualization type (default: kvm)
+    VIRT_TYPE="{{ hostvars[item]['virtualization'] | default('kvm') }}"
+    HOST_NAME="{{ item }}"
+    HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+
+    # Check if host already exists
+    EXISTING=$(curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.hostpool.info</methodName>
+        <params>
+          <param><value><string>oneadmin:opennebula</string></value></param>
+        </params>
+      </methodCall>" | grep -c "${HOST_NAME}" || echo "0")
+
+    if [ "$EXISTING" -gt "0" ]; then
+      echo "Host ${HOST_NAME} already registered"
+      exit 0
+    fi
+
+    # Register host via XML-RPC API
+    RESULT=$(curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.host.allocate</methodName>
+        <params>
+          <param><value><string>oneadmin:opennebula</string></value></param>
+          <param><value><string>${HOST_NAME}</string></value></param>
+          <param><value><string>${VIRT_TYPE}</string></value></param>
+          <param><value><string>${VIRT_TYPE}</string></value></param>
+          <param><value><int>-1</int></value></param>
+        </params>
+      </methodCall>")
+
+    if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
+      echo "Host ${HOST_NAME} registered successfully"
+    else
+      echo "Warning: Host ${HOST_NAME} registration may have failed"
+      echo "$RESULT"
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ hosts_to_register }}"
+  delegate_to: localhost
+  register: register_result
+  changed_when: "'registered successfully' in register_result.stdout"
+
+- name: Display registration results
+  ansible.builtin.debug:
+    msg: "{{ item.stdout_lines | default(['No output']) }}"
+  loop: "{{ register_result.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Wait for hosts to become active
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: "Waiting for hosts to be monitored and become active..."
+
+- name: Verify host registration
+  ansible.builtin.shell: |
+    curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.hostpool.info</methodName>
+        <params>
+          <param><value><string>oneadmin:opennebula</string></value></param>
+        </params>
+      </methodCall>" | grep -o '<NAME>[^<]*</NAME>' | sed 's/<[^>]*>//g'
+  delegate_to: localhost
+  register: host_list
+
+- name: Display registered hosts
+  ansible.builtin.debug:
+    msg: "Registered hosts in OpenNebula: {{ host_list.stdout_lines | join(', ') }}"

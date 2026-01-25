@@ -113,3 +113,60 @@ jobs:
           echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.detect-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** ${{ needs.detect-version.outputs.version }}, latest" >> $GITHUB_STEP_SUMMARY
+
+  build-provisioner:
+    runs-on: ubuntu-latest
+    env:
+      PROVISIONER_IMAGE: pablodelarco/opennebula-provisioner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for provisioner changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            # For scheduled runs, only build if provisioner doesn't exist
+            if docker manifest inspect ${{ env.PROVISIONER_IMAGE }}:latest > /dev/null 2>&1; then
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            else
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Check if provisioner files changed
+            git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q 'docker/provisioner/' && \
+              echo "should_build=true" >> $GITHUB_OUTPUT || echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.should_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.changes.outputs.should_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push provisioner
+        if: steps.changes.outputs.should_build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker/provisioner
+          push: true
+          tags: |
+            ${{ env.PROVISIONER_IMAGE }}:latest
+            ${{ env.PROVISIONER_IMAGE }}:1.0.0
+          cache-from: type=gha,scope=provisioner
+          cache-to: type=gha,mode=max,scope=provisioner
+
+      - name: Summary
+        if: steps.changes.outputs.should_build == 'true'
+        run: |
+          echo "## Provisioner Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.PROVISIONER_IMAGE }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** latest, 1.0.0" >> $GITHUB_STEP_SUMMARY

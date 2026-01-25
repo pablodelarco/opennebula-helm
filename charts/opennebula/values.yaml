@@ -121,3 +121,129 @@ tolerations: []
 
 ## Affinity
 affinity: {}
+
+## ============================================================
+## ONEDEPLOY INTEGRATION - Hypervisor Node Provisioning
+## ============================================================
+## This section mirrors the OneDeploy inventory format
+## Users familiar with OneDeploy can use the same configuration
+## Ref: https://github.com/OpenNebula/one-deploy
+
+onedeploy:
+  ## Enable automatic provisioning of hypervisor nodes
+  ## When enabled, a Kubernetes Job will provision the specified hosts
+  enabled: false
+
+  ## --------------------------------------------------------
+  ## Global Variables (maps to all.vars in OneDeploy)
+  ## --------------------------------------------------------
+  vars:
+    ## SSH user for connecting to nodes (must have sudo/root access)
+    ansible_user: root
+
+    ## OpenNebula version to install on nodes
+    one_version: "7.0"
+
+    ## Ensure hosts are registered with OpenNebula after provisioning
+    ensure_hosts: true
+
+    ## --------------------------------------------------------
+    ## Virtual Networks (maps to vn in OneDeploy)
+    ## Define networks that will be created in OpenNebula
+    ## --------------------------------------------------------
+    vn: {}
+      ## Example virtual network configuration:
+      # admin_net:
+      #   managed: true
+      #   template:
+      #     VN_MAD: bridge
+      #     PHYDEV: eth0
+      #     BRIDGE: br0
+      #     AR:
+      #       TYPE: IP4
+      #       IP: 172.20.0.100
+      #       SIZE: 48
+      #     NETWORK_ADDRESS: 172.20.0.0
+      #     NETWORK_MASK: 255.255.255.0
+      #     GATEWAY: 172.20.0.1
+      #     DNS: 1.1.1.1
+
+    ## --------------------------------------------------------
+    ## Datastores (maps to ds in OneDeploy)
+    ## --------------------------------------------------------
+    ds:
+      ## Mode: ssh (local storage), shared (NFS), or ceph
+      mode: ssh
+      ## For shared mode, configure mounts:
+      # config:
+      #   mounts:
+      #     - type: system
+      #       path: /mnt/datastores/0
+      #     - type: image
+      #       path: /mnt/datastores/1
+
+    ## --------------------------------------------------------
+    ## NFS Mounts (maps to fstab in OneDeploy)
+    ## Only needed for shared storage mode
+    ## --------------------------------------------------------
+    fstab: []
+      ## Example NFS mount:
+      # - src: "nfs-server:/var/lib/one/datastores"
+      #   path: /mnt/datastores
+
+    ## --------------------------------------------------------
+    ## Optional Features
+    ## --------------------------------------------------------
+    features:
+      prometheus: false
+      ceph: false
+
+  ## --------------------------------------------------------
+  ## Hypervisor Nodes (maps to node.hosts in OneDeploy)
+  ## Define the hosts that will be provisioned as hypervisors
+  ## --------------------------------------------------------
+  node:
+    hosts: {}
+      ## Example node configuration:
+      # kvm-node-01:
+      #   ansible_host: 192.168.1.101
+      #   # virtualization: kvm  # default
+      # kvm-node-02:
+      #   ansible_host: 192.168.1.102
+      # lxc-node-01:
+      #   ansible_host: 192.168.1.103
+      #   virtualization: lxc  # Override for LXC containers
+
+  ## --------------------------------------------------------
+  ## Provisioner Configuration (Helm-specific settings)
+  ## --------------------------------------------------------
+  provisioner:
+    ## Docker image for the provisioner
+    image:
+      repository: pablodelarco/opennebula-provisioner
+      tag: "latest"
+      pullPolicy: IfNotPresent
+
+    ## SSH configuration for connecting to hosts
+    ssh:
+      ## Private key for SSH access to nodes (base64 encoded)
+      ## Generate: ssh-keygen -t ed25519 -f provisioner_key -N ""
+      ## Encode: cat provisioner_key | base64 -w0
+      privateKey: ""
+
+      ## Or use an existing Kubernetes secret containing the SSH key
+      ## Secret must have key 'id_rsa' with the private key
+      existingSecret: ""
+
+    ## Job configuration
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 3600  # Clean up job after 1 hour
+
+    ## Resources for the provisioner job
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi

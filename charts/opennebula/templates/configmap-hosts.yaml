@@ -1,0 +1,56 @@
+{{- if .Values.onedeploy.enabled }}
+{{- if .Values.onedeploy.node.hosts }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opennebula.fullname" . }}-hosts-config
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: host-provisioner
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  inventory.yml: |
+    ---
+    all:
+      vars:
+        ansible_user: {{ .Values.onedeploy.vars.ansible_user | quote }}
+        ansible_ssh_private_key_file: /root/.ssh/id_rsa
+        one_version: {{ .Values.onedeploy.vars.one_version | quote }}
+        ensure_hosts: {{ .Values.onedeploy.vars.ensure_hosts }}
+        {{- if .Values.onedeploy.vars.vn }}
+        vn:
+          {{- .Values.onedeploy.vars.vn | toYaml | nindent 10 }}
+        {{- end }}
+        {{- if .Values.onedeploy.vars.ds }}
+        ds:
+          {{- .Values.onedeploy.vars.ds | toYaml | nindent 10 }}
+        {{- end }}
+        {{- if .Values.onedeploy.vars.fstab }}
+        fstab:
+          {{- .Values.onedeploy.vars.fstab | toYaml | nindent 10 }}
+        {{- end }}
+        {{- if .Values.onedeploy.vars.features }}
+        features:
+          {{- .Values.onedeploy.vars.features | toYaml | nindent 10 }}
+        {{- end }}
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3
+        {{- range $name, $config := .Values.onedeploy.node.hosts }}
+        {{ $name }}:
+          ansible_host: {{ $config.ansible_host | quote }}
+          {{- if $config.virtualization }}
+          virtualization: {{ $config.virtualization | quote }}
+          {{- else }}
+          virtualization: "kvm"
+          {{- end }}
+          {{- if $config.cluster }}
+          cluster: {{ $config.cluster | quote }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- end }}

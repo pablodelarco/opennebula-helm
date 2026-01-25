@@ -1,0 +1,133 @@
+---
+# OpenNebula Node Installation Role
+# Installs OpenNebula node packages and configures SSH
+
+- name: Gather OS facts
+  ansible.builtin.setup:
+    gather_subset:
+      - distribution
+      - distribution_major_version
+
+- name: Set OS family variables
+  ansible.builtin.set_fact:
+    is_debian: "{{ ansible_os_family == 'Debian' }}"
+    is_redhat: "{{ ansible_os_family == 'RedHat' }}"
+
+# --- Debian/Ubuntu Installation ---
+
+- name: Install prerequisites (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - gnupg
+      - apt-transport-https
+      - ca-certificates
+    state: present
+    update_cache: yes
+  when: is_debian
+
+- name: Add OpenNebula GPG key (Debian/Ubuntu)
+  ansible.builtin.apt_key:
+    url: https://downloads.opennebula.io/repo/repo2.key
+    state: present
+  when: is_debian
+
+- name: Add OpenNebula repository (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: "deb https://downloads.opennebula.io/repo/{{ one_version }}/Ubuntu/{{ ansible_distribution_version }} stable opennebula"
+    state: present
+    filename: opennebula
+  when: is_debian and ansible_distribution == 'Ubuntu'
+
+- name: Add OpenNebula repository (Debian)
+  ansible.builtin.apt_repository:
+    repo: "deb https://downloads.opennebula.io/repo/{{ one_version }}/Debian/{{ ansible_distribution_major_version }} stable opennebula"
+    state: present
+    filename: opennebula
+  when: is_debian and ansible_distribution == 'Debian'
+
+- name: Install OpenNebula node package (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "opennebula-node-{{ virtualization }}"
+    state: present
+    update_cache: yes
+  when: is_debian
+  notify: Restart libvirtd
+
+# --- RHEL/AlmaLinux/Rocky Installation ---
+
+- name: Install EPEL repository (RHEL family)
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+  when: is_redhat
+
+- name: Add OpenNebula repository (RHEL family)
+  ansible.builtin.yum_repository:
+    name: opennebula
+    description: OpenNebula Community Edition
+    baseurl: "https://downloads.opennebula.io/repo/{{ one_version }}/RHEL/{{ ansible_distribution_major_version }}/$basearch"
+    gpgcheck: yes
+    gpgkey: https://downloads.opennebula.io/repo/repo2.key
+    enabled: yes
+  when: is_redhat
+
+- name: Install OpenNebula node package (RHEL family)
+  ansible.builtin.dnf:
+    name: "opennebula-node-{{ virtualization }}"
+    state: present
+  when: is_redhat
+  notify: Restart libvirtd
+
+# --- SSH Configuration ---
+
+- name: Ensure oneadmin group exists
+  ansible.builtin.group:
+    name: oneadmin
+    gid: 9869
+    state: present
+
+- name: Ensure oneadmin user exists
+  ansible.builtin.user:
+    name: oneadmin
+    uid: 9869
+    group: oneadmin
+    home: /var/lib/one
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Create .ssh directory for oneadmin
+  ansible.builtin.file:
+    path: /var/lib/one/.ssh
+    state: directory
+    owner: oneadmin
+    group: oneadmin
+    mode: '0700'
+
+- name: Add frontend public key to authorized_keys
+  ansible.posix.authorized_key:
+    user: oneadmin
+    key: "{{ oneadmin_pubkey }}"
+    state: present
+    exclusive: no
+
+- name: Ensure proper permissions on authorized_keys
+  ansible.builtin.file:
+    path: /var/lib/one/.ssh/authorized_keys
+    owner: oneadmin
+    group: oneadmin
+    mode: '0600'
+
+# --- Libvirt Configuration ---
+
+- name: Ensure libvirtd is enabled and started
+  ansible.builtin.systemd:
+    name: libvirtd
+    enabled: yes
+    state: started
+  when: virtualization == 'kvm'
+
+# --- Flush handlers ---
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers

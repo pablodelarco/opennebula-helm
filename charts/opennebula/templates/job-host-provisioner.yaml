@@ -1,0 +1,79 @@
+{{- if .Values.onedeploy.enabled }}
+{{- if .Values.onedeploy.node.hosts }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "opennebula.fullname" . }}-host-provisioner
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: host-provisioner
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ttlSecondsAfterFinished: {{ .Values.onedeploy.provisioner.ttlSecondsAfterFinished }}
+  backoffLimit: {{ .Values.onedeploy.provisioner.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "opennebula.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: host-provisioner
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: provisioner
+          image: "{{ .Values.onedeploy.provisioner.image.repository }}:{{ .Values.onedeploy.provisioner.image.tag }}"
+          imagePullPolicy: {{ .Values.onedeploy.provisioner.image.pullPolicy }}
+          env:
+            - name: ANSIBLE_HOST_KEY_CHECKING
+              value: "False"
+            - name: ANSIBLE_STDOUT_CALLBACK
+              value: "yaml"
+            - name: FRONTEND_HOST
+              value: "{{ include "opennebula.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: FRONTEND_PORT
+              value: "2633"
+            - name: INVENTORY_FILE
+              value: "/config/inventory.yml"
+            - name: ONEADMIN_PUBKEY_FILE
+              value: "/secrets/id_rsa.pub"
+            - name: MAX_RETRIES
+              value: "60"
+            - name: RETRY_INTERVAL
+              value: "10"
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /root/.ssh
+              readOnly: true
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: oneadmin-pubkey
+              mountPath: /secrets
+              readOnly: true
+          resources:
+            {{- toYaml .Values.onedeploy.provisioner.resources | nindent 12 }}
+      volumes:
+        - name: ssh-key
+          secret:
+            {{- if .Values.onedeploy.provisioner.ssh.existingSecret }}
+            secretName: {{ .Values.onedeploy.provisioner.ssh.existingSecret }}
+            {{- else }}
+            secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
+            {{- end }}
+            defaultMode: 0600
+            items:
+              - key: id_rsa
+                path: id_rsa
+        - name: config
+          configMap:
+            name: {{ include "opennebula.fullname" . }}-hosts-config
+        - name: oneadmin-pubkey
+          secret:
+            secretName: {{ include "opennebula.fullname" . }}-ssh
+            items:
+              - key: id_rsa.pub
+                path: id_rsa.pub
+{{- end }}
+{{- end }}

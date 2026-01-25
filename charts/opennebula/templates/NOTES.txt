@@ -64,5 +64,66 @@ View logs:
    kubectl logs -f statefulset/{{ include "opennebula.fullname" . }} -c fireedge-proxy
 {{- end }}
 
+{{- if .Values.onedeploy.enabled }}
+{{- if .Values.onedeploy.node.hosts }}
+
+================================================================================
+HOST PROVISIONING (OneDeploy Integration)
+================================================================================
+
+A provisioner job is running to configure your hypervisor nodes.
+
+Check provisioner status:
+   kubectl get jobs {{ include "opennebula.fullname" . }}-host-provisioner
+
+View provisioner logs:
+   kubectl logs job/{{ include "opennebula.fullname" . }}-host-provisioner -f
+
+Hosts being provisioned:
+{{- range $name, $config := .Values.onedeploy.node.hosts }}
+   - {{ $name }} ({{ $config.ansible_host }}) - {{ $config.virtualization | default "kvm" }}
+{{- end }}
+
+After provisioning completes, verify hosts:
+   kubectl exec {{ include "opennebula.fullname" . }}-0 -c opennebula -- onehost list
+
+{{- end }}
+{{- else }}
+
+================================================================================
+ADDING HYPERVISOR HOSTS
+================================================================================
+
+To add KVM/LXC hosts to your OpenNebula deployment:
+
+1. Get the SSH public key:
+   kubectl exec {{ include "opennebula.fullname" . }}-0 -c opennebula -- \
+     cat /var/lib/one/.ssh/id_rsa.pub
+
+2. On each hypervisor host, install OpenNebula node packages:
+   # For KVM (Ubuntu/Debian):
+   apt-get install opennebula-node-kvm
+   systemctl restart libvirtd
+
+   # For LXC:
+   apt-get install opennebula-node-lxc
+
+3. Add the SSH public key to each host:
+   mkdir -p /var/lib/one/.ssh
+   echo "<PUBLIC_KEY>" >> /var/lib/one/.ssh/authorized_keys
+   chown -R 9869:9869 /var/lib/one
+   chmod 700 /var/lib/one/.ssh
+   chmod 600 /var/lib/one/.ssh/authorized_keys
+
+4. Register hosts:
+   kubectl exec {{ include "opennebula.fullname" . }}-0 -c opennebula -- \
+     onehost create <hostname> --im kvm --vm kvm
+
+TIP: Enable onedeploy integration to automate this process!
+     Set onedeploy.enabled=true and configure onedeploy.node.hosts
+     See: https://github.com/pablodelarco/opennebula-helm#host-provisioning
+
+{{- end }}
+
 For more information, visit:
 https://github.com/pablodelarco/opennebula-helm
