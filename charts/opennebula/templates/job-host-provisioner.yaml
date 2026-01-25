@@ -68,8 +68,10 @@ spec:
           secret:
             {{- if .Values.onedeploy.provisioner.ssh.existingSecret }}
             secretName: {{ .Values.onedeploy.provisioner.ssh.existingSecret }}
-            {{- else }}
+            {{- else if .Values.onedeploy.provisioner.ssh.privateKey }}
             secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
+            {{- else }}
+            secretName: {{ include "opennebula.fullname" . }}-ssh-generated
             {{- end }}
             defaultMode: 0600
             items:
@@ -82,8 +84,10 @@ spec:
           secret:
             {{- if .Values.onedeploy.provisioner.ssh.existingSecret }}
             secretName: {{ .Values.onedeploy.provisioner.ssh.existingSecret }}
-            {{- else }}
+            {{- else if .Values.onedeploy.provisioner.ssh.privateKey }}
             secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
+            {{- else }}
+            secretName: {{ include "opennebula.fullname" . }}-ssh-generated
             {{- end }}
             items:
               - key: id_rsa.pub
