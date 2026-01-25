@@ -1,0 +1,16 @@
+# Helm dependencies (downloaded by helm dependency update)
+charts/*/charts/
+*.tgz
+
+# Planning and working files
+.planning/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
