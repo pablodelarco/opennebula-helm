@@ -105,7 +105,7 @@
 
 - name: Wait for initial monitoring
   ansible.builtin.pause:
-    seconds: 15
+    seconds: 5
     prompt: "Waiting for initial host monitoring..."
 
 - name: Sync remotes to all registered hosts
@@ -186,7 +186,7 @@
 
 - name: Wait for hosts to become active
   ansible.builtin.pause:
-    seconds: 60
+    seconds: 10
     prompt: "Waiting for hosts to be fully monitored..."
 
 - name: Verify host status

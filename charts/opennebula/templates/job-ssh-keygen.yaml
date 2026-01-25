@@ -88,17 +88,21 @@ spec:
               SECRET_NAME="{{ include "opennebula.fullname" . }}-ssh-generated"
               NAMESPACE="{{ .Release.Namespace }}"
 
+              # Kubernetes API endpoint (in-cluster)
+              KUBE_API="https://kubernetes.default.svc"
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              CA_CERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
               echo "Installing required tools..."
               apk add --no-cache openssh-keygen curl
 
-              # Download kubectl
-              KUBECTL_VERSION="v1.31.0"
-              curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-              chmod +x kubectl
-              mv kubectl /usr/local/bin/
-
               echo "Checking if secret ${SECRET_NAME} already exists..."
-              if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" 2>/dev/null; then
+              RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+                --cacert ${CA_CERT} \
+                -H "Authorization: Bearer ${TOKEN}" \
+                "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}")
+
+              if [ "$RESPONSE" = "200" ]; then
                 echo "Secret already exists, skipping generation"
                 exit 0
               fi
@@ -106,11 +110,28 @@ spec:
               echo "Generating SSH key pair..."
               ssh-keygen -t ed25519 -f /tmp/id_rsa -N "" -C "oneadmin@opennebula"
 
+              # Base64 encode the keys
+              PRIVATE_KEY=$(cat /tmp/id_rsa | base64 | tr -d '\n')
+              PUBLIC_KEY=$(cat /tmp/id_rsa.pub | base64 | tr -d '\n')
+
               echo "Creating secret ${SECRET_NAME}..."
-              kubectl create secret generic "${SECRET_NAME}" \
-                --namespace="${NAMESPACE}" \
-                --from-file=id_rsa=/tmp/id_rsa \
-                --from-file=id_rsa.pub=/tmp/id_rsa.pub
+              curl -s --cacert ${CA_CERT} \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                -X POST "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets" \
+                -d "{
+                  \"apiVersion\": \"v1\",
+                  \"kind\": \"Secret\",
+                  \"metadata\": {
+                    \"name\": \"${SECRET_NAME}\",
+                    \"namespace\": \"${NAMESPACE}\"
+                  },
+                  \"type\": \"Opaque\",
+                  \"data\": {
+                    \"id_rsa\": \"${PRIVATE_KEY}\",
+                    \"id_rsa.pub\": \"${PUBLIC_KEY}\"
+                  }
+                }" > /dev/null
 
               echo "SSH key pair generated and stored in secret ${SECRET_NAME}"
           resources:

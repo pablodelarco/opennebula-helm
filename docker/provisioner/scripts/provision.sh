@@ -55,9 +55,9 @@ if [ $retry_count -ge $MAX_RETRIES ]; then
     exit 1
 fi
 
-# Additional wait for services to stabilize
-echo "Waiting 10s for services to stabilize..."
-sleep 10
+# Brief wait for services to stabilize
+echo "Waiting for services to stabilize..."
+sleep 3
 
 # Run Ansible playbook
 echo ""
