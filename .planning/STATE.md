@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2025-01-23)
 Phase: 3 of 3 (Helm Chart Core) - COMPLETE
 Plan: 4 of 4 in current phase
 Status: Phase complete
-Last activity: 2026-01-24 - Completed 03-04-PLAN.md
+Last activity: 2026-01-25 - Completed quick task 003: Auto-generate SSH keys for onedeploy
 
 Progress: [##########] 100%
 
@@ -78,10 +78,14 @@ None - all phases complete.
 
 ### Quick Tasks Completed
 
-- [quick-001]: Automated SSH known_hosts handling (StrictHostKeyChecking=accept-new)
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | Automate SSH known_hosts for hypervisor provisioning | 2026-01-25 | 9be4830 | [001-analyze-branches-test-helm-chart-automat](./quick/001-analyze-branches-test-helm-chart-automat/) |
+| 002 | Test helm chart and analyze Docker architecture | 2026-01-25 | - | [002-test-helm-chart-and-analyze-docker-image](./quick/002-test-helm-chart-and-analyze-docker-image/) |
+| 003 | Auto-generate SSH keys for onedeploy | 2026-01-25 | a6a0452 | [003-auto-generate-ssh-keys](./quick/003-auto-generate-ssh-keys/) |
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed quick-001-PLAN.md
-Resume file: None - quick task complete
+Stopped at: Completed quick task 003
+Resume file: None - milestone complete

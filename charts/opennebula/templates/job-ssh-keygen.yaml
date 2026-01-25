@@ -79,14 +79,23 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: keygen
-          image: bitnami/kubectl:latest
+          image: alpine:3.20
           command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - |
               set -e
               SECRET_NAME="{{ include "opennebula.fullname" . }}-ssh-generated"
               NAMESPACE="{{ .Release.Namespace }}"
+
+              echo "Installing required tools..."
+              apk add --no-cache openssh-keygen curl
+
+              # Download kubectl
+              KUBECTL_VERSION="v1.31.0"
+              curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
 
               echo "Checking if secret ${SECRET_NAME} already exists..."
               if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" 2>/dev/null; then
