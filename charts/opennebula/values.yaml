@@ -93,7 +93,11 @@ ingress:
 ## SSH keys for hypervisor communication
 ## If not provided, keys will be generated and stored in a persistent secret
 ssh:
-  ## Provide existing keys (base64 encoded)
+  ## Auto-generate SSH keys when onedeploy is enabled
+  ## Set to false to disable auto-generation (requires manual key config)
+  autoGenerate: true
+
+  ## Provide existing keys (base64 encoded) - overrides autoGenerate
   # privateKey: ""
   # publicKey: ""
 

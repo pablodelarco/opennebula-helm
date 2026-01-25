@@ -76,8 +76,12 @@ None.
 
 None - all phases complete.
 
+### Quick Tasks Completed
+
+- [quick-001]: Automated SSH known_hosts handling (StrictHostKeyChecking=accept-new)
+
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Completed 03-04-PLAN.md
-Resume file: None - milestone complete
+Last session: 2026-01-25
+Stopped at: Completed quick-001-PLAN.md
+Resume file: None - quick task complete
