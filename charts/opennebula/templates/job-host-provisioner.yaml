@@ -38,6 +38,11 @@ spec:
               value: "/config/inventory.yml"
             - name: ONEADMIN_PUBKEY_FILE
               value: "/secrets/id_rsa.pub"
+            - name: ONEADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "opennebula.fullname" . }}-credentials
+                  key: oneadmin-password
             - name: MAX_RETRIES
               value: "60"
             - name: RETRY_INTERVAL

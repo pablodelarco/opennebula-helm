@@ -10,6 +10,7 @@ FRONTEND_HOST="${FRONTEND_HOST:-opennebula}"
 FRONTEND_PORT="${FRONTEND_PORT:-2633}"
 INVENTORY_FILE="${INVENTORY_FILE:-/config/inventory.yml}"
 ONEADMIN_PUBKEY_FILE="${ONEADMIN_PUBKEY_FILE:-/secrets/id_rsa.pub}"
+ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-opennebula}"
 MAX_RETRIES="${MAX_RETRIES:-60}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-10}"
 
@@ -71,6 +72,7 @@ ansible-playbook \
     -e "frontend_host=${FRONTEND_HOST}" \
     -e "frontend_port=${FRONTEND_PORT}" \
     -e "oneadmin_pubkey='${ONEADMIN_PUBKEY}'" \
+    -e "oneadmin_password='${ONEADMIN_PASSWORD}'" \
     -v
 
 echo ""

@@ -2,6 +2,10 @@
 # OpenNebula Virtual Network Creation Role
 # Creates virtual networks defined in the inventory
 
+- name: Set authentication
+  ansible.builtin.set_fact:
+    one_auth: "oneadmin:{{ oneadmin_password | default('opennebula') }}"
+
 - name: Display virtual networks to create
   ansible.builtin.debug:
     msg: "Will create virtual network: {{ item.key }}"
@@ -17,36 +21,78 @@
   when: item.value.managed | default(true)
   delegate_to: localhost
 
-- name: Create virtual networks via API
+- name: Check if virtual network already exists
   ansible.builtin.shell: |
-    # Read the template
-    TEMPLATE=$(cat /tmp/vnet_{{ item.key }}.tmpl)
+    ONE_AUTH="{{ one_auth }}"
+    VNET_NAME="{{ item.key }}"
 
-    # Create network via XML-RPC (simplified - uses oneadmin session)
-    # In production, this would use proper API authentication
-    curl -s -X POST \
-      -H "Content-Type: application/xml" \
+    RESULT=$(curl -s -X POST \
       "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
       -d "<?xml version='1.0'?>
       <methodCall>
-        <methodName>one.vn.allocate</methodName>
+        <methodName>one.vnpool.info</methodName>
         <params>
-          <param><value><string>oneadmin:opennebula</string></value></param>
-          <param><value><string>${TEMPLATE}</string></value></param>
-          <param><value><int>-1</int></value></param>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+          <param><value><i4>-2</i4></value></param>
+          <param><value><i4>-1</i4></value></param>
+          <param><value><i4>-1</i4></value></param>
         </params>
-      </methodCall>" || true
+      </methodCall>")
+
+    if echo "$RESULT" | grep -q "<NAME>${VNET_NAME}</NAME>"; then
+      echo "EXISTS"
+    else
+      echo "NOT_FOUND"
+    fi
   args:
     executable: /bin/bash
   loop: "{{ vn | dict2items }}"
   when: item.value.managed | default(true)
   delegate_to: localhost
+  register: vnet_check
+  changed_when: false
+
+- name: Create virtual networks via API
+  ansible.builtin.shell: |
+    ONE_AUTH="{{ one_auth }}"
+    # Read the template
+    TEMPLATE=$(cat /tmp/vnet_{{ item.item.key }}.tmpl)
+
+    # Create network via XML-RPC
+    RESULT=$(curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.vn.allocate</methodName>
+        <params>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+          <param><value><string>${TEMPLATE}</string></value></param>
+          <param><value><i4>-1</i4></value></param>
+        </params>
+      </methodCall>")
+
+    if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
+      VNET_ID=$(echo "$RESULT" | grep -oP '<i4>\K[0-9]+' | head -1)
+      echo "Virtual network {{ item.item.key }} created with ID ${VNET_ID}"
+    else
+      echo "Failed to create network {{ item.item.key }}"
+      echo "$RESULT"
+      exit 1
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ vnet_check.results }}"
+  when:
+    - item.item.value.managed | default(true)
+    - item.stdout == "NOT_FOUND"
+  delegate_to: localhost
   register: vnet_result
-  changed_when: "'true' in vnet_result.stdout"
-  failed_when: false
+  changed_when: "'created with ID' in vnet_result.stdout"
 
 - name: Display network creation results
   ansible.builtin.debug:
-    msg: "Network {{ item.item.key }}: {{ 'created' if item.changed else 'already exists or skipped' }}"
+    msg: "{{ item.stdout_lines | default(['Skipped - already exists']) }}"
   loop: "{{ vnet_result.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.key | default('network') }}"
   when: vnet_result.results is defined

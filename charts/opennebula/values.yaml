@@ -150,23 +150,53 @@ onedeploy:
     ## --------------------------------------------------------
     ## Virtual Networks (maps to vn in OneDeploy)
     ## Define networks that will be created in OpenNebula
+    ## At minimum, you need ONE network for VMs to get IP addresses
     ## --------------------------------------------------------
     vn: {}
-      ## Example virtual network configuration:
-      # admin_net:
+      ## IMPORTANT: Uncomment and configure at least one network!
+      ##
+      ## Example 1: Simple bridge network (most common)
+      ## This creates a bridge on the host's physical interface
+      # default:
       #   managed: true
       #   template:
-      #     VN_MAD: bridge
+      #     VN_MAD: bridge           # Network driver: bridge, 802.1Q, vxlan, ovswitch
+      #     PHYDEV: eth0             # Physical interface on hypervisors
+      #     BRIDGE: br0              # Bridge name to create
+      #     AR:                      # Address Range - IPs for VMs
+      #       TYPE: IP4
+      #       IP: 192.168.1.100      # First IP to assign to VMs
+      #       SIZE: 50               # Number of IPs (100-149 in this example)
+      #     NETWORK_ADDRESS: 192.168.1.0
+      #     NETWORK_MASK: 255.255.255.0
+      #     GATEWAY: 192.168.1.1     # Router for internet access
+      #     DNS: 8.8.8.8             # DNS server for VMs
+      #
+      ## Example 2: VLAN-tagged network
+      # vlan100:
+      #   managed: true
+      #   template:
+      #     VN_MAD: 802.1Q
       #     PHYDEV: eth0
-      #     BRIDGE: br0
+      #     VLAN_ID: 100
       #     AR:
       #       TYPE: IP4
-      #       IP: 172.20.0.100
-      #       SIZE: 48
-      #     NETWORK_ADDRESS: 172.20.0.0
-      #     NETWORK_MASK: 255.255.255.0
-      #     GATEWAY: 172.20.0.1
-      #     DNS: 1.1.1.1
+      #       IP: 10.100.0.10
+      #       SIZE: 200
+      #     GATEWAY: 10.100.0.1
+      #     DNS: 10.100.0.1
+      #
+      ## Example 3: Tailscale/overlay network (no bridge, just routing)
+      ## For Tailscale users - VMs get Tailscale IPs directly
+      # tailscale_net:
+      #   managed: true
+      #   template:
+      #     VN_MAD: dummy            # No physical network config needed
+      #     AR:
+      #       TYPE: IP4
+      #       IP: 100.64.0.10        # Tailscale CGNAT range (or your assigned range)
+      #       SIZE: 20
+      #     # No gateway needed - Tailscale handles routing
 
     ## --------------------------------------------------------
     ## Datastores (maps to ds in OneDeploy)

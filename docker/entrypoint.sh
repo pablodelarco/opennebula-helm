@@ -122,10 +122,11 @@ DB = [ BACKEND = "mysql",\
 fi
 
 # ----------------------------------------------------------------------------
-# Disable Scheduler (not needed in Kubernetes control-plane-only mode)
-# The "rank" scheduler module is not available in the base package
+# Enable Scheduler for VM placement
+# The scheduler assigns VMs to hosts based on capacity and policies
 # ----------------------------------------------------------------------------
-sed -i '/^SCHED_MAD = \[/,/^\]/{s/^/#/}' /etc/one/oned.conf
+# Uncomment SCHED_MAD if it's commented (default config has it commented)
+sed -i '/^#SCHED_MAD = \[/,/^#\]/{s/^#//}' /etc/one/oned.conf
 
 # ----------------------------------------------------------------------------
 # Service Endpoint Configuration

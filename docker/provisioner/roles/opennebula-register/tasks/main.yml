@@ -1,10 +1,11 @@
 ---
 # OpenNebula Host Registration Role
-# Registers provisioned hosts with the OpenNebula front-end
+# Registers provisioned hosts with the OpenNebula front-end and syncs remotes
 
 - name: Build list of hosts to register
   ansible.builtin.set_fact:
     hosts_to_register: "{{ groups['all'] | difference(['localhost']) | list }}"
+    one_auth: "oneadmin:{{ oneadmin_password | default('opennebula') }}"
 
 - name: Display hosts to register
   ansible.builtin.debug:
@@ -22,34 +23,35 @@
   ansible.builtin.shell: |
     # Get virtualization type (default: kvm)
     VIRT_TYPE="{{ hostvars[item]['virtualization'] | default('kvm') }}"
-    HOST_NAME="{{ item }}"
     HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+    ONE_AUTH="{{ one_auth }}"
 
-    # Check if host already exists
+    # Check if host already exists (by IP since that's what we use as identifier)
     EXISTING=$(curl -s -X POST \
       "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
       -d "<?xml version='1.0'?>
       <methodCall>
         <methodName>one.hostpool.info</methodName>
         <params>
-          <param><value><string>oneadmin:opennebula</string></value></param>
+          <param><value><string>${ONE_AUTH}</string></value></param>
         </params>
-      </methodCall>" | grep -c "${HOST_NAME}" || echo "0")
+      </methodCall>" | grep -c "${HOST_IP}" || echo "0")
 
     if [ "$EXISTING" -gt "0" ]; then
-      echo "Host ${HOST_NAME} already registered"
+      echo "Host ${HOST_IP} already registered"
+      echo "HOST_EXISTS"
       exit 0
     fi
 
-    # Register host via XML-RPC API
+    # Register host via XML-RPC API (use IP as hostname for consistency)
     RESULT=$(curl -s -X POST \
       "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
       -d "<?xml version='1.0'?>
       <methodCall>
         <methodName>one.host.allocate</methodName>
         <params>
-          <param><value><string>oneadmin:opennebula</string></value></param>
-          <param><value><string>${HOST_NAME}</string></value></param>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+          <param><value><string>${HOST_IP}</string></value></param>
           <param><value><string>${VIRT_TYPE}</string></value></param>
           <param><value><string>${VIRT_TYPE}</string></value></param>
           <param><value><int>-1</int></value></param>
@@ -57,10 +59,14 @@
       </methodCall>")
 
     if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
-      echo "Host ${HOST_NAME} registered successfully"
+      # Extract host ID from result
+      HOST_ID=$(echo "$RESULT" | grep -oP '<i4>\K[0-9]+' | head -1)
+      echo "Host ${HOST_IP} registered successfully with ID ${HOST_ID}"
+      echo "HOST_ID=${HOST_ID}"
     else
-      echo "Warning: Host ${HOST_NAME} registration may have failed"
+      echo "Warning: Host ${HOST_IP} registration may have failed"
       echo "$RESULT"
+      exit 1
     fi
   args:
     executable: /bin/bash
@@ -76,25 +82,112 @@
   loop_control:
     label: "{{ item.item }}"
 
+- name: Wait for initial monitoring
+  ansible.builtin.pause:
+    seconds: 15
+    prompt: "Waiting for initial host monitoring..."
+
+- name: Sync remotes to all registered hosts
+  ansible.builtin.shell: |
+    HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+    ONE_AUTH="{{ one_auth }}"
+
+    echo "Syncing remotes to ${HOST_IP}..."
+
+    # Call onehost sync via XML-RPC
+    # Method: one.host.sync(auth, host_id, force)
+    # First get the host ID
+    HOST_INFO=$(curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.hostpool.info</methodName>
+        <params>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+        </params>
+      </methodCall>")
+
+    # Extract host ID for this IP
+    HOST_ID=$(echo "$HOST_INFO" | grep -B5 "<NAME>${HOST_IP}</NAME>" | grep -oP '<ID>\K[0-9]+' | head -1)
+
+    if [ -z "$HOST_ID" ]; then
+      echo "Could not find host ID for ${HOST_IP}"
+      exit 1
+    fi
+
+    echo "Found host ID: ${HOST_ID}"
+
+    # Sync remotes (force=true)
+    SYNC_RESULT=$(curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.host.sync</methodName>
+        <params>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+          <param><value><i4>${HOST_ID}</i4></value></param>
+          <param><value><boolean>1</boolean></value></param>
+        </params>
+      </methodCall>")
+
+    if echo "$SYNC_RESULT" | grep -q "<boolean>1</boolean>"; then
+      echo "Remotes synced successfully to ${HOST_IP}"
+    else
+      echo "Warning: Sync may have failed for ${HOST_IP}"
+      echo "$SYNC_RESULT"
+    fi
+
+    # Enable host to restart monitoring
+    curl -s -X POST \
+      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
+      -d "<?xml version='1.0'?>
+      <methodCall>
+        <methodName>one.host.status</methodName>
+        <params>
+          <param><value><string>${ONE_AUTH}</string></value></param>
+          <param><value><i4>${HOST_ID}</i4></value></param>
+          <param><value><i4>0</i4></value></param>
+        </params>
+      </methodCall>" > /dev/null
+
+    echo "Host ${HOST_IP} enabled"
+  args:
+    executable: /bin/bash
+  loop: "{{ hosts_to_register }}"
+  delegate_to: localhost
+  register: sync_result
+
+- name: Display sync results
+  ansible.builtin.debug:
+    msg: "{{ item.stdout_lines | default(['No output']) }}"
+  loop: "{{ sync_result.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
 - name: Wait for hosts to become active
   ansible.builtin.pause:
-    seconds: 30
-    prompt: "Waiting for hosts to be monitored and become active..."
+    seconds: 60
+    prompt: "Waiting for hosts to be fully monitored (this may take up to a minute)..."
 
-- name: Verify host registration
+- name: Verify host status
   ansible.builtin.shell: |
+    ONE_AUTH="{{ one_auth }}"
     curl -s -X POST \
       "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
       -d "<?xml version='1.0'?>
       <methodCall>
         <methodName>one.hostpool.info</methodName>
         <params>
-          <param><value><string>oneadmin:opennebula</string></value></param>
+          <param><value><string>${ONE_AUTH}</string></value></param>
         </params>
-      </methodCall>" | grep -o '<NAME>[^<]*</NAME>' | sed 's/<[^>]*>//g'
+      </methodCall>" | grep -oP '<NAME>[^<]+</NAME>|<STATE>[^<]+</STATE>' | paste - - | sed 's/<[^>]*>//g'
   delegate_to: localhost
   register: host_list
 
-- name: Display registered hosts
+- name: Display registered hosts and their states
   ansible.builtin.debug:
-    msg: "Registered hosts in OpenNebula: {{ host_list.stdout_lines | join(', ') }}"
+    msg: |
+      Registered hosts in OpenNebula:
+      {{ host_list.stdout }}
+
+      State codes: 0=INIT, 1=MONITORING_MONITORED, 2=MONITORED (ready), 3=ERROR, 4=DISABLED
