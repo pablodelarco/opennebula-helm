@@ -118,7 +118,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/one
-            {{- if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+            {{- if or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
             - name: ssh-keys
               mountPath: /var/lib/one/.ssh-secret
               readOnly: true
@@ -143,10 +143,14 @@ spec:
             periodSeconds: 10
         {{- end }}
       volumes:
-        {{- if and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+        {{- if or (and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey)) (and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey) }}
         - name: ssh-keys
           secret:
+            {{- if and .Values.onedeploy.enabled .Values.onedeploy.provisioner.ssh.privateKey }}
+            secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
+            {{- else }}
             secretName: {{ include "opennebula.fullname" . }}-ssh
+            {{- end }}
             defaultMode: 0600
         {{- end }}
         {{- if .Values.fireedgeProxy.enabled }}
