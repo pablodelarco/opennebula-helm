@@ -3,4 +3,19 @@
 # The restic binary is used for backup functionality
 
 # Restic binary vulnerabilities (bundled with opennebula package)
-usr/share/one/remotes-dist/datastore/restic/restic
+# Path: usr/share/one/remotes-dist/datastore/restic/restic
+
+# golang-jwt - memory allocation during header parsing
+CVE-2025-30204
+
+# golang.org/x/crypto - SSH authorization bypass and DoS
+CVE-2024-45337
+CVE-2025-22869
+
+# golang.org/x/oauth2 - memory consumption during token parsing
+CVE-2025-22868
+
+# Go stdlib vulnerabilities in restic binary
+CVE-2025-47907
+CVE-2025-58183
+CVE-2025-61729
