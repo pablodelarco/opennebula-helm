@@ -96,6 +96,19 @@
   register: install_result
   changed_when: "'OpenNebula node package installed' in install_result.stdout"
 
+- name: Fix gems symlink for OpenNebula 7.0 on Ubuntu 24.04
+  ansible.builtin.raw: |
+    # OpenNebula 7.0 on Ubuntu 24.04 has gems in gems-dist but monitoring looks for gems
+    if [ -d "/usr/share/one/gems-dist" ] && [ ! -e "/usr/share/one/gems" ]; then
+      ln -s /usr/share/one/gems-dist /usr/share/one/gems
+      echo "Created gems symlink"
+    else
+      echo "Gems symlink not needed or already exists"
+    fi
+  when: is_debian
+  register: gems_result
+  changed_when: "'Created gems symlink' in gems_result.stdout"
+
 # --- RHEL/AlmaLinux/Rocky Installation (raw commands) ---
 
 - name: Install EPEL repository (RHEL family)
