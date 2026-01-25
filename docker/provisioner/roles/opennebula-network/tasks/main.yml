@@ -39,6 +39,9 @@
         </params>
       </methodCall>")
 
+    # Unescape HTML entities in the response (API returns escaped XML)
+    RESULT=$(echo "$RESULT" | sed 's/&lt;/</g; s/&gt;/>/g; s/&amp;/\&/g; s/&quot;/"/g')
+
     if echo "$RESULT" | grep -q "<NAME>${VNET_NAME}</NAME>"; then
       echo "EXISTS"
     else
@@ -72,7 +75,7 @@
       </methodCall>")
 
     if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
-      VNET_ID=$(echo "$RESULT" | grep -oP '<i4>\K[0-9]+' | head -1)
+      VNET_ID=$(echo "$RESULT" | sed -n 's/.*<i4>\([0-9]*\)<\/i4>.*/\1/p' | head -1)
       echo "Virtual network {{ item.item.key }} created with ID ${VNET_ID}"
     else
       echo "Failed to create network {{ item.item.key }}"
