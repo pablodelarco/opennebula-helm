@@ -21,11 +21,21 @@ if [ ! -d /var/lib/one/remotes ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# SSH Key Generation for oneadmin
+# SSH Key Setup for oneadmin
 # ----------------------------------------------------------------------------
 if [ ! -f /var/lib/one/.ssh/id_rsa ]; then
-    echo "Generating SSH keys for oneadmin..."
-    sudo -u oneadmin ssh-keygen -t rsa -N "" -f /var/lib/one/.ssh/id_rsa
+    # Check if SSH keys are mounted from secret
+    if [ -f /var/lib/one/.ssh-secret/id_rsa ]; then
+        echo "Using mounted SSH keys from secret..."
+        cp /var/lib/one/.ssh-secret/id_rsa /var/lib/one/.ssh/id_rsa
+        cp /var/lib/one/.ssh-secret/id_rsa.pub /var/lib/one/.ssh/id_rsa.pub
+        chown oneadmin:oneadmin /var/lib/one/.ssh/id_rsa /var/lib/one/.ssh/id_rsa.pub
+        chmod 600 /var/lib/one/.ssh/id_rsa
+        chmod 644 /var/lib/one/.ssh/id_rsa.pub
+    else
+        echo "Generating SSH keys for oneadmin..."
+        sudo -u oneadmin ssh-keygen -t rsa -N "" -f /var/lib/one/.ssh/id_rsa
+    fi
     cat /var/lib/one/.ssh/id_rsa.pub >> /var/lib/one/.ssh/authorized_keys
     chown oneadmin:oneadmin /var/lib/one/.ssh/authorized_keys
     chmod 600 /var/lib/one/.ssh/authorized_keys
@@ -38,7 +48,20 @@ ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-oneadmin}"
 
 # Check if oned has already bootstrapped (user_pool should have at least oneadmin)
 # The package creates an empty schema, but oned creates actual user data on first run
-DB_BOOTSTRAPPED=$(sqlite3 /var/lib/one/one.db "SELECT COUNT(*) FROM user_pool;" 2>/dev/null || echo "0")
+if [ "$DB_BACKEND" = "mysql" ]; then
+    # For MySQL, check if user_pool has data
+    # Use timeout and retries in case DB is still starting
+    for i in 1 2 3 4 5; do
+        DB_BOOTSTRAPPED=$(mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" \
+            -sN -e "SELECT COUNT(*) FROM user_pool;" 2>/dev/null || echo "0")
+        [ "$DB_BOOTSTRAPPED" != "0" ] && break
+        echo "Waiting for database... attempt $i/5"
+        sleep 2
+    done
+else
+    # For SQLite, check local database
+    DB_BOOTSTRAPPED=$(sqlite3 /var/lib/one/one.db "SELECT COUNT(*) FROM user_pool;" 2>/dev/null || echo "0")
+fi
 
 if [ "$DB_BOOTSTRAPPED" = "0" ]; then
     echo "Fresh database - removing package files for clean bootstrap..."
@@ -62,21 +85,8 @@ fi
 # Export ONE_AUTH for CLI tools
 export ONE_AUTH=/var/lib/one/.one/one_auth
 
-# Create service auth files if they don't exist
-# OneFlow and OneGate use the same credentials as oneadmin
-if [ ! -f /var/lib/one/.one/oneflow_auth ]; then
-    echo "Creating OneFlow auth file..."
-    echo "serveradmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/oneflow_auth
-    chown oneadmin:oneadmin /var/lib/one/.one/oneflow_auth
-    chmod 600 /var/lib/one/.one/oneflow_auth
-fi
-
-if [ ! -f /var/lib/one/.one/onegate_auth ]; then
-    echo "Creating OneGate auth file..."
-    echo "serveradmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/onegate_auth
-    chown oneadmin:oneadmin /var/lib/one/.one/onegate_auth
-    chmod 600 /var/lib/one/.one/onegate_auth
-fi
+# Note: OneFlow and OneGate auth files are created by oned during bootstrap
+# Do not create them here to avoid interfering with bootstrap
 
 # ----------------------------------------------------------------------------
 # Database Configuration
@@ -149,7 +159,8 @@ if [ -f /var/lib/one/one.db ]; then
 fi
 
 # Ensure all of /var/lib/one is owned by oneadmin
-chown -R oneadmin:oneadmin /var/lib/one
+# Exclude .ssh-secret which is a read-only mounted secret
+find /var/lib/one -path /var/lib/one/.ssh-secret -prune -o -exec chown oneadmin:oneadmin {} + 2>/dev/null || true
 
 # ----------------------------------------------------------------------------
 # Execute CMD

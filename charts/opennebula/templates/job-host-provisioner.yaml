@@ -29,7 +29,7 @@ spec:
             - name: ANSIBLE_HOST_KEY_CHECKING
               value: "False"
             - name: ANSIBLE_STDOUT_CALLBACK
-              value: "yaml"
+              value: "default"
             - name: FRONTEND_HOST
               value: "{{ include "opennebula.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
             - name: FRONTEND_PORT
@@ -60,7 +60,7 @@ spec:
             {{- if .Values.onedeploy.provisioner.ssh.existingSecret }}
             secretName: {{ .Values.onedeploy.provisioner.ssh.existingSecret }}
             {{- else }}
-            secretName: {{ include "opennebula.fullname" . }}-provisioner-ssh
+            secretName: {{ include "opennebula.fullname" . }}-ssh
             {{- end }}
             defaultMode: 0600
             items:
@@ -71,7 +71,11 @@ spec:
             name: {{ include "opennebula.fullname" . }}-hosts-config
         - name: oneadmin-pubkey
           secret:
+            {{- if .Values.onedeploy.provisioner.ssh.existingSecret }}
+            secretName: {{ .Values.onedeploy.provisioner.ssh.existingSecret }}
+            {{- else }}
             secretName: {{ include "opennebula.fullname" . }}-ssh
+            {{- end }}
             items:
               - key: id_rsa.pub
                 path: id_rsa.pub

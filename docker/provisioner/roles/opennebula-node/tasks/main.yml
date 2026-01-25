@@ -105,18 +105,23 @@
     mode: '0700'
 
 - name: Add frontend public key to authorized_keys
-  ansible.posix.authorized_key:
-    user: oneadmin
-    key: "{{ oneadmin_pubkey }}"
-    state: present
-    exclusive: no
+  ansible.builtin.shell: |
+    grep -qF "{{ oneadmin_pubkey }}" /var/lib/one/.ssh/authorized_keys 2>/dev/null || \
+    echo "{{ oneadmin_pubkey }}" >> /var/lib/one/.ssh/authorized_keys
+  args:
+    creates: /var/lib/one/.ssh/authorized_keys
+  register: add_key_result
+  changed_when: add_key_result.rc == 0
 
-- name: Ensure proper permissions on authorized_keys
+- name: Ensure authorized_keys exists with proper permissions
   ansible.builtin.file:
     path: /var/lib/one/.ssh/authorized_keys
+    state: touch
     owner: oneadmin
     group: oneadmin
     mode: '0600'
+    modification_time: preserve
+    access_time: preserve
 
 # --- Libvirt Configuration ---
 

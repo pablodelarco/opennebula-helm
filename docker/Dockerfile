@@ -10,7 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install prerequisites
 # systemd provides systemd-tmpfiles required by OpenNebula post-install scripts
-# sqlite3 used by entrypoint to check database bootstrap status
+# sqlite3 used by entrypoint to check SQLite database bootstrap status
+# mysql-client used by entrypoint to check MySQL database bootstrap status
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg2 \
     wget \
@@ -20,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     systemd \
     sqlite3 \
+    mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Add OpenNebula 7.0 repository

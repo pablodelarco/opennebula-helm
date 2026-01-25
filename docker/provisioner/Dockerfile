@@ -26,10 +26,12 @@ RUN apk add --no-cache \
     jq \
     && rm -rf /var/cache/apk/*
 
-# Install required Ansible collections
-RUN ansible-galaxy collection install \
-    community.general \
-    ansible.posix
+# Install required Ansible collections (with retry for Galaxy availability)
+# These are optional - core modules work without them
+RUN for i in 1 2 3; do \
+      ansible-galaxy collection install community.general ansible.posix && break || \
+      (echo "Galaxy unavailable, attempt $i/3, waiting..." && sleep 10); \
+    done || echo "Warning: Collections not installed, using built-in modules"
 
 # Create working directory
 WORKDIR /ansible
