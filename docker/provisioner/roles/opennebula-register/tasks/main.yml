@@ -104,6 +104,9 @@
           </params>
         </methodCall>")
 
+      # Unescape HTML entities in the response (API returns escaped XML)
+      HOST_INFO=$(echo "$HOST_INFO" | sed 's/&lt;/</g; s/&gt;/>/g; s/&amp;/\&/g; s/&quot;/"/g')
+
       # Extract host ID using sed (portable)
       # Find the HOST block containing our IP and extract its ID
       HOST_ID=$(echo "$HOST_INFO" | tr '\n' ' ' | sed 's/<HOST>/\n<HOST>/g' | grep "${HOST_IP}" | sed -n 's/.*<ID>\([0-9]*\)<\/ID>.*/\1/p' | head -1)
