@@ -80,6 +80,29 @@
   loop_control:
     label: "{{ item.item }}"
 
+- name: Collect SSH host keys from registered hosts
+  ansible.builtin.shell:
+    cmd: |
+      HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+      echo "Scanning SSH host key for ${HOST_IP}..."
+      ssh-keyscan -H "${HOST_IP}" 2>/dev/null
+    executable: /bin/bash
+  loop: "{{ hosts_to_register }}"
+  delegate_to: localhost
+  register: host_keys_result
+  changed_when: false
+
+- name: Store host keys for frontend consumption
+  ansible.builtin.copy:
+    content: |
+      {% for result in host_keys_result.results %}
+      {{ result.stdout }}
+      {% endfor %}
+    dest: /tmp/known_hosts_additions
+    mode: '0644'
+  delegate_to: localhost
+  when: host_keys_result.results | length > 0
+
 - name: Wait for initial monitoring
   ansible.builtin.pause:
     seconds: 15
