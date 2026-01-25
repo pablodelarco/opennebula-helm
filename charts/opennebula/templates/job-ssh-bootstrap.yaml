@@ -1,0 +1,148 @@
+{{/*
+SSH Bootstrap Job
+Runs as pre-install hook AFTER ssh-keygen to inject the generated public key
+into hypervisors using password authentication.
+Only runs when:
+- onedeploy.enabled=true
+- onedeploy.bootstrap.password is provided
+- SSH keys are auto-generated (no manual keys provided)
+*/}}
+{{- $hasManualKey := or .Values.onedeploy.provisioner.ssh.privateKey .Values.onedeploy.provisioner.ssh.existingSecret }}
+{{- $hasUserSSH := and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
+{{- $shouldAutoGenerate := and .Values.onedeploy.enabled (default true .Values.ssh.autoGenerate) (not $hasManualKey) (not $hasUserSSH) }}
+{{- $hasBootstrapPassword := and .Values.onedeploy.bootstrap .Values.onedeploy.bootstrap.password }}
+{{- if and $shouldAutoGenerate $hasBootstrapPassword .Values.onedeploy.node.hosts }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "opennebula.fullname" . }}-bootstrap
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+type: Opaque
+stringData:
+  password: {{ .Values.onedeploy.bootstrap.password | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "opennebula.fullname" . }}-ssh-bootstrap
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-bootstrap
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-4"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "opennebula.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "========================================"
+              echo "SSH Key Bootstrap"
+              echo "========================================"
+
+              # Install sshpass and openssh-client
+              echo "Installing required tools..."
+              apk add --no-cache sshpass openssh-client
+
+              # Get the generated public key from the secret
+              # We need to wait for the ssh-keygen job to complete
+              SECRET_NAME="{{ include "opennebula.fullname" . }}-ssh-generated"
+              NAMESPACE="{{ .Release.Namespace }}"
+
+              # Kubernetes API endpoint (in-cluster)
+              KUBE_API="https://kubernetes.default.svc"
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              CA_CERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+              echo "Waiting for SSH key secret to be created..."
+              for i in $(seq 1 30); do
+                RESPONSE=$(curl -s --cacert ${CA_CERT} \
+                  -H "Authorization: Bearer ${TOKEN}" \
+                  "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}")
+
+                if echo "$RESPONSE" | grep -q '"id_rsa.pub"'; then
+                  echo "SSH key secret found!"
+                  break
+                fi
+
+                if [ $i -eq 30 ]; then
+                  echo "ERROR: Timeout waiting for SSH key secret"
+                  exit 1
+                fi
+
+                echo "  Attempt $i/30 - waiting 2s..."
+                sleep 2
+              done
+
+              # Extract and decode the public key
+              PUBKEY=$(echo "$RESPONSE" | grep -o '"id_rsa.pub":"[^"]*"' | cut -d'"' -f4 | base64 -d)
+              echo "Public key: ${PUBKEY}"
+
+              # Bootstrap user (default to ansible_user from vars, or root)
+              BOOTSTRAP_USER="{{ default (default "root" .Values.onedeploy.vars.ansible_user) .Values.onedeploy.bootstrap.user }}"
+
+              # SSH options
+              SSH_OPTS="-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+
+              # Process each host
+              FAILED=0
+              {{- range $name, $host := .Values.onedeploy.node.hosts }}
+              echo ""
+              echo "Bootstrapping {{ $name }} ({{ $host.ansible_host }})..."
+
+              if sshpass -p "$BOOTSTRAP_PASSWORD" ssh $SSH_OPTS ${BOOTSTRAP_USER}@{{ $host.ansible_host }} \
+                "mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
+                 grep -qF '${PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || echo '${PUBKEY}' >> ~/.ssh/authorized_keys && \
+                 chmod 600 ~/.ssh/authorized_keys && \
+                 echo 'Key added successfully'"; then
+                echo "  ✓ {{ $name }} bootstrapped"
+              else
+                echo "  ✗ {{ $name }} FAILED"
+                FAILED=$((FAILED + 1))
+              fi
+              {{- end }}
+
+              echo ""
+              echo "========================================"
+              if [ $FAILED -eq 0 ]; then
+                echo "Bootstrap Complete - All hosts configured!"
+              else
+                echo "Bootstrap completed with $FAILED failures"
+                exit 1
+              fi
+              echo "========================================"
+          env:
+            - name: BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "opennebula.fullname" . }}-bootstrap
+                  key: password
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+{{- end }}
