@@ -7,10 +7,25 @@
 - name: Provision OpenNebula Hypervisor Nodes
   hosts: all:!localhost
   become: true
-  gather_facts: true
+  gather_facts: false
   vars:
     one_version: "{{ hostvars['localhost']['one_version'] | default('7.0') }}"
     virtualization: "{{ hostvars[inventory_hostname]['virtualization'] | default('kvm') }}"
+
+  pre_tasks:
+    - name: Gather minimal facts manually
+      ansible.builtin.raw: |
+        echo "ansible_distribution=$(cat /etc/os-release | grep '^ID=' | cut -d= -f2 | tr -d '\"')"
+        echo "ansible_distribution_release=$(cat /etc/os-release | grep 'VERSION_CODENAME' | cut -d= -f2)"
+        echo "ansible_os_family=Debian"
+      register: raw_facts
+      changed_when: false
+
+    - name: Parse distribution facts
+      ansible.builtin.set_fact:
+        ansible_distribution: "{{ (raw_facts.stdout_lines | select('match', '^ansible_distribution=') | first | default('=ubuntu')).split('=')[1] }}"
+        ansible_distribution_release: "{{ (raw_facts.stdout_lines | select('match', '^ansible_distribution_release=') | first | default('=noble')).split('=')[1] }}"
+        ansible_os_family: "Debian"
 
   roles:
     - role: opennebula-node

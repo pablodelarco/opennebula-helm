@@ -1,138 +1,179 @@
 ---
 # OpenNebula Node Installation Role
 # Installs OpenNebula node packages and configures SSH
-
-- name: Gather OS facts
-  ansible.builtin.setup:
-    gather_subset:
-      - distribution
-      - distribution_major_version
+# NOTE: Uses raw/shell commands for Tailscale SSH compatibility
+# (Python-based Ansible modules don't work with Tailscale SSH)
 
 - name: Set OS family variables
   ansible.builtin.set_fact:
-    is_debian: "{{ ansible_os_family == 'Debian' }}"
-    is_redhat: "{{ ansible_os_family == 'RedHat' }}"
+    is_debian: "{{ ansible_os_family | default('Debian') == 'Debian' }}"
+    is_redhat: "{{ ansible_os_family | default('Debian') == 'RedHat' }}"
+    # Map Ubuntu codenames to version numbers for OpenNebula repo
+    ubuntu_version_map:
+      noble: "24.04"
+      jammy: "22.04"
+      focal: "20.04"
+    debian_version_map:
+      bookworm: "12"
+      bullseye: "11"
 
-# --- Debian/Ubuntu Installation ---
+# --- Clean up and Install Prerequisites (Debian/Ubuntu) ---
 
-- name: Install prerequisites (Debian/Ubuntu)
-  ansible.builtin.apt:
-    name:
-      - gnupg
-      - apt-transport-https
-      - ca-certificates
-    state: present
-    update_cache: yes
+- name: Clean old repos and install prerequisites (Debian/Ubuntu)
+  ansible.builtin.raw: |
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Remove any old OpenNebula repo files that might cause apt-get update errors
+    rm -f /etc/apt/sources.list.d/opennebula*.list 2>/dev/null || true
+
+    apt-get update -qq 2>/dev/null || true
+    apt-get install -y -qq gnupg apt-transport-https ca-certificates curl lsb-release
   when: is_debian
+  register: prereq_result
+  changed_when: "'is already the newest version' not in prereq_result.stdout"
 
 - name: Add OpenNebula GPG key (Debian/Ubuntu)
-  ansible.builtin.apt_key:
-    url: https://downloads.opennebula.io/repo/repo2.key
-    state: present
+  ansible.builtin.raw: |
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://downloads.opennebula.io/repo/repo2.key | gpg --batch --yes --dearmor -o /etc/apt/keyrings/opennebula.gpg 2>/dev/null || \
+    curl -fsSL https://downloads.opennebula.io/repo/repo2.key | apt-key add - 2>/dev/null
+    echo "GPG key added"
   when: is_debian
+  register: gpg_result
+  changed_when: "'GPG key added' in gpg_result.stdout"
 
-- name: Add OpenNebula repository (Ubuntu)
-  ansible.builtin.apt_repository:
-    repo: "deb https://downloads.opennebula.io/repo/{{ one_version }}/Ubuntu/{{ ansible_distribution_version }} stable opennebula"
-    state: present
-    filename: opennebula
-  when: is_debian and ansible_distribution == 'Ubuntu'
+- name: Detect Ubuntu version and add OpenNebula repository
+  ansible.builtin.raw: |
+    # Get Ubuntu version number directly from the system
+    UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || cat /etc/os-release | grep VERSION_ID | cut -d'"' -f2)
 
-- name: Add OpenNebula repository (Debian)
-  ansible.builtin.apt_repository:
-    repo: "deb https://downloads.opennebula.io/repo/{{ one_version }}/Debian/{{ ansible_distribution_major_version }} stable opennebula"
-    state: present
-    filename: opennebula
-  when: is_debian and ansible_distribution == 'Debian'
+    # OpenNebula 7.0 supports Ubuntu 22.04 (Community) and 24.04 (Enterprise)
+    # Use 22.04 as fallback for unsupported versions
+    case "$UBUNTU_VERSION" in
+      24.04|22.04|20.04)
+        VERSION="$UBUNTU_VERSION"
+        ;;
+      *)
+        echo "Ubuntu $UBUNTU_VERSION not directly supported, using 22.04 packages"
+        VERSION="22.04"
+        ;;
+    esac
+
+    echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] https://downloads.opennebula.io/repo/{{ one_version }}/Ubuntu/${VERSION} stable opennebula" > /etc/apt/sources.list.d/opennebula.list
+    echo "Added OpenNebula repo for Ubuntu ${VERSION}"
+  when: is_debian and ansible_distribution == 'ubuntu'
+  register: repo_result
+  changed_when: "'Added OpenNebula repo' in repo_result.stdout"
+
+- name: Detect Debian version and add OpenNebula repository
+  ansible.builtin.raw: |
+    # Get Debian version number
+    DEBIAN_VERSION=$(cat /etc/debian_version | cut -d'.' -f1)
+
+    case "$DEBIAN_VERSION" in
+      12|11)
+        VERSION="$DEBIAN_VERSION"
+        ;;
+      *)
+        echo "Debian $DEBIAN_VERSION not directly supported, using version 12 packages"
+        VERSION="12"
+        ;;
+    esac
+
+    echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] https://downloads.opennebula.io/repo/{{ one_version }}/Debian/${VERSION} stable opennebula" > /etc/apt/sources.list.d/opennebula.list
+    echo "Added OpenNebula repo for Debian ${VERSION}"
+  when: is_debian and ansible_distribution == 'debian'
+  register: repo_result
+  changed_when: "'Added OpenNebula repo' in repo_result.stdout"
 
 - name: Install OpenNebula node package (Debian/Ubuntu)
-  ansible.builtin.apt:
-    name: "opennebula-node-{{ virtualization }}"
-    state: present
-    update_cache: yes
+  ansible.builtin.raw: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y -qq opennebula-node-{{ virtualization }}
+    echo "OpenNebula node package installed"
   when: is_debian
-  notify: Restart libvirtd
+  register: install_result
+  changed_when: "'OpenNebula node package installed' in install_result.stdout"
 
-# --- RHEL/AlmaLinux/Rocky Installation ---
+# --- RHEL/AlmaLinux/Rocky Installation (raw commands) ---
 
 - name: Install EPEL repository (RHEL family)
-  ansible.builtin.dnf:
-    name: epel-release
-    state: present
+  ansible.builtin.raw: |
+    dnf install -y epel-release
   when: is_redhat
+  register: epel_result
+  changed_when: "'Nothing to do' not in epel_result.stdout"
 
 - name: Add OpenNebula repository (RHEL family)
-  ansible.builtin.yum_repository:
-    name: opennebula
-    description: OpenNebula Community Edition
-    baseurl: "https://downloads.opennebula.io/repo/{{ one_version }}/RHEL/{{ ansible_distribution_major_version }}/$basearch"
-    gpgcheck: yes
-    gpgkey: https://downloads.opennebula.io/repo/repo2.key
-    enabled: yes
+  ansible.builtin.raw: |
+    RHEL_VERSION=$(rpm -E %rhel)
+    cat > /etc/yum.repos.d/opennebula.repo << EOF
+    [opennebula]
+    name=OpenNebula Community Edition
+    baseurl=https://downloads.opennebula.io/repo/{{ one_version }}/RHEL/${RHEL_VERSION}/\$basearch
+    gpgcheck=1
+    gpgkey=https://downloads.opennebula.io/repo/repo2.key
+    enabled=1
+    EOF
+    echo "OpenNebula repo added"
   when: is_redhat
+  register: yum_repo_result
+  changed_when: "'OpenNebula repo added' in yum_repo_result.stdout"
 
 - name: Install OpenNebula node package (RHEL family)
-  ansible.builtin.dnf:
-    name: "opennebula-node-{{ virtualization }}"
-    state: present
+  ansible.builtin.raw: |
+    dnf install -y opennebula-node-{{ virtualization }}
   when: is_redhat
-  notify: Restart libvirtd
+  register: rhel_install_result
+  changed_when: "'Nothing to do' not in rhel_install_result.stdout"
 
-# --- SSH Configuration ---
+# --- SSH Configuration (raw commands) ---
 
-- name: Ensure oneadmin group exists
-  ansible.builtin.group:
-    name: oneadmin
-    gid: 9869
-    state: present
+- name: Ensure oneadmin group and user exist
+  ansible.builtin.raw: |
+    # Create oneadmin group if not exists
+    getent group oneadmin > /dev/null 2>&1 || groupadd -g 9869 oneadmin
 
-- name: Ensure oneadmin user exists
-  ansible.builtin.user:
-    name: oneadmin
-    uid: 9869
-    group: oneadmin
-    home: /var/lib/one
-    shell: /bin/bash
-    create_home: yes
-    state: present
+    # Create oneadmin user if not exists
+    id oneadmin > /dev/null 2>&1 || useradd -u 9869 -g oneadmin -d /var/lib/one -s /bin/bash -m oneadmin
 
-- name: Create .ssh directory for oneadmin
-  ansible.builtin.file:
-    path: /var/lib/one/.ssh
-    state: directory
-    owner: oneadmin
-    group: oneadmin
-    mode: '0700'
+    # Ensure home directory exists with correct ownership
+    mkdir -p /var/lib/one
+    chown oneadmin:oneadmin /var/lib/one
+    echo "User setup complete"
+  register: user_result
+  changed_when: true
 
-- name: Add frontend public key to authorized_keys
-  ansible.builtin.shell: |
-    grep -qF "{{ oneadmin_pubkey }}" /var/lib/one/.ssh/authorized_keys 2>/dev/null || \
-    echo "{{ oneadmin_pubkey }}" >> /var/lib/one/.ssh/authorized_keys
-  args:
-    creates: /var/lib/one/.ssh/authorized_keys
-  register: add_key_result
-  changed_when: add_key_result.rc == 0
+- name: Setup SSH for oneadmin
+  ansible.builtin.raw: |
+    # Create .ssh directory
+    mkdir -p /var/lib/one/.ssh
+    chmod 700 /var/lib/one/.ssh
+    chown oneadmin:oneadmin /var/lib/one/.ssh
 
-- name: Ensure authorized_keys exists with proper permissions
-  ansible.builtin.file:
-    path: /var/lib/one/.ssh/authorized_keys
-    state: touch
-    owner: oneadmin
-    group: oneadmin
-    mode: '0600'
-    modification_time: preserve
-    access_time: preserve
+    # Add public key to authorized_keys if not present
+    touch /var/lib/one/.ssh/authorized_keys
+    if ! grep -qF "{{ oneadmin_pubkey }}" /var/lib/one/.ssh/authorized_keys 2>/dev/null; then
+      echo "{{ oneadmin_pubkey }}" >> /var/lib/one/.ssh/authorized_keys
+      echo "Key added"
+    else
+      echo "Key already present"
+    fi
 
-# --- Libvirt Configuration ---
+    # Set proper permissions
+    chmod 600 /var/lib/one/.ssh/authorized_keys
+    chown oneadmin:oneadmin /var/lib/one/.ssh/authorized_keys
+  register: ssh_result
+  changed_when: "'Key added' in ssh_result.stdout"
+
+# --- Libvirt Configuration (raw commands) ---
 
 - name: Ensure libvirtd is enabled and started
-  ansible.builtin.systemd:
-    name: libvirtd
-    enabled: yes
-    state: started
+  ansible.builtin.raw: |
+    systemctl enable libvirtd
+    systemctl start libvirtd
+    systemctl is-active libvirtd
   when: virtualization == 'kvm'
-
-# --- Flush handlers ---
-
-- name: Flush handlers
-  ansible.builtin.meta: flush_handlers
+  register: libvirt_result
+  changed_when: false

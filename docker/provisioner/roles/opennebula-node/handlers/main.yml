@@ -1,8 +1,8 @@
 ---
 # Handlers for opennebula-node role
+# NOTE: Uses raw commands for Tailscale SSH compatibility
 
 - name: Restart libvirtd
-  ansible.builtin.systemd:
-    name: libvirtd
-    state: restarted
-    enabled: yes
+  ansible.builtin.raw: |
+    systemctl restart libvirtd
+    systemctl is-active libvirtd

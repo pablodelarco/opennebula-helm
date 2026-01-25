@@ -39,3 +39,6 @@ spec:
     - port: 5030
       targetPort: 5030
       name: onegate
+    - port: 4124
+      targetPort: 4124
+      name: monitord

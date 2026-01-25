@@ -30,6 +30,10 @@ spec:
               value: "False"
             - name: ANSIBLE_STDOUT_CALLBACK
               value: "default"
+            - name: ANSIBLE_PIPELINING
+              value: "False"
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: FRONTEND_HOST
               value: "{{ include "opennebula.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
             - name: FRONTEND_PORT

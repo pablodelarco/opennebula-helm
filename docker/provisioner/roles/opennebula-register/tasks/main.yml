@@ -20,60 +20,58 @@
   delegate_to: localhost
 
 - name: Register hosts with OpenNebula
-  ansible.builtin.shell: |
-    # Get virtualization type (default: kvm)
-    VIRT_TYPE="{{ hostvars[item]['virtualization'] | default('kvm') }}"
-    HOST_IP="{{ hostvars[item]['ansible_host'] }}"
-    ONE_AUTH="{{ one_auth }}"
+  ansible.builtin.shell:
+    cmd: |
+      VIRT_TYPE="{{ hostvars[item]['virtualization'] | default('kvm') }}"
+      HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+      ONE_AUTH="{{ one_auth }}"
+      API_URL="http://{{ frontend_host }}:{{ frontend_port }}/RPC2"
 
-    # Check if host already exists (by IP since that's what we use as identifier)
-    EXISTING=$(curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.hostpool.info</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-        </params>
-      </methodCall>" | grep -c "${HOST_IP}" || echo "0")
+      # Check if host already exists
+      EXISTING=$(curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.hostpool.info</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+          </params>
+        </methodCall>" | grep -c "${HOST_IP}" || echo "0")
 
-    if [ "$EXISTING" -gt "0" ]; then
-      echo "Host ${HOST_IP} already registered"
-      echo "HOST_EXISTS"
-      exit 0
-    fi
+      # Handle grep output which might have newlines
+      EXISTING=$(echo "$EXISTING" | tr -d '\n' | awk '{print $1}')
 
-    # Register host via XML-RPC API (use IP as hostname for consistency)
-    RESULT=$(curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.host.allocate</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-          <param><value><string>${HOST_IP}</string></value></param>
-          <param><value><string>${VIRT_TYPE}</string></value></param>
-          <param><value><string>${VIRT_TYPE}</string></value></param>
-          <param><value><int>-1</int></value></param>
-        </params>
-      </methodCall>")
+      if [ "$EXISTING" -gt "0" ] 2>/dev/null; then
+        echo "Host ${HOST_IP} already registered"
+        exit 0
+      fi
 
-    if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
-      # Extract host ID from result
-      HOST_ID=$(echo "$RESULT" | grep -oP '<i4>\K[0-9]+' | head -1)
-      echo "Host ${HOST_IP} registered successfully with ID ${HOST_ID}"
-      echo "HOST_ID=${HOST_ID}"
-    else
-      echo "Warning: Host ${HOST_IP} registration may have failed"
-      echo "$RESULT"
-      exit 1
-    fi
-  args:
+      # Register host
+      RESULT=$(curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.host.allocate</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+            <param><value><string>${HOST_IP}</string></value></param>
+            <param><value><string>${VIRT_TYPE}</string></value></param>
+            <param><value><string>${VIRT_TYPE}</string></value></param>
+            <param><value><int>-1</int></value></param>
+          </params>
+        </methodCall>")
+
+      if echo "$RESULT" | grep -q "<boolean>1</boolean>"; then
+        # Extract host ID using sed (portable, no -P needed)
+        HOST_ID=$(echo "$RESULT" | sed -n 's/.*<i4>\([0-9]*\)<\/i4>.*/\1/p' | head -1)
+        echo "Host ${HOST_IP} registered with ID ${HOST_ID}"
+      else
+        echo "Registration failed: $RESULT"
+        exit 1
+      fi
     executable: /bin/bash
   loop: "{{ hosts_to_register }}"
   delegate_to: localhost
   register: register_result
-  changed_when: "'registered successfully' in register_result.stdout"
+  changed_when: "'registered with ID' in register_result.stdout"
 
 - name: Display registration results
   ansible.builtin.debug:
@@ -88,70 +86,66 @@
     prompt: "Waiting for initial host monitoring..."
 
 - name: Sync remotes to all registered hosts
-  ansible.builtin.shell: |
-    HOST_IP="{{ hostvars[item]['ansible_host'] }}"
-    ONE_AUTH="{{ one_auth }}"
+  ansible.builtin.shell:
+    cmd: |
+      HOST_IP="{{ hostvars[item]['ansible_host'] }}"
+      ONE_AUTH="{{ one_auth }}"
+      API_URL="http://{{ frontend_host }}:{{ frontend_port }}/RPC2"
 
-    echo "Syncing remotes to ${HOST_IP}..."
+      echo "Syncing remotes to ${HOST_IP}..."
 
-    # Call onehost sync via XML-RPC
-    # Method: one.host.sync(auth, host_id, force)
-    # First get the host ID
-    HOST_INFO=$(curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.hostpool.info</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-        </params>
-      </methodCall>")
+      # Get host info
+      HOST_INFO=$(curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.hostpool.info</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+          </params>
+        </methodCall>")
 
-    # Extract host ID for this IP
-    HOST_ID=$(echo "$HOST_INFO" | grep -B5 "<NAME>${HOST_IP}</NAME>" | grep -oP '<ID>\K[0-9]+' | head -1)
+      # Extract host ID using sed (portable)
+      # Find the HOST block containing our IP and extract its ID
+      HOST_ID=$(echo "$HOST_INFO" | tr '\n' ' ' | sed 's/<HOST>/\n<HOST>/g' | grep "${HOST_IP}" | sed -n 's/.*<ID>\([0-9]*\)<\/ID>.*/\1/p' | head -1)
 
-    if [ -z "$HOST_ID" ]; then
-      echo "Could not find host ID for ${HOST_IP}"
-      exit 1
-    fi
+      if [ -z "$HOST_ID" ]; then
+        echo "Could not find host ID for ${HOST_IP}"
+        exit 1
+      fi
 
-    echo "Found host ID: ${HOST_ID}"
+      echo "Found host ID: ${HOST_ID}"
 
-    # Sync remotes (force=true)
-    SYNC_RESULT=$(curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.host.sync</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-          <param><value><i4>${HOST_ID}</i4></value></param>
-          <param><value><boolean>1</boolean></value></param>
-        </params>
-      </methodCall>")
+      # Sync remotes
+      SYNC_RESULT=$(curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.host.sync</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+            <param><value><i4>${HOST_ID}</i4></value></param>
+            <param><value><boolean>1</boolean></value></param>
+          </params>
+        </methodCall>")
 
-    if echo "$SYNC_RESULT" | grep -q "<boolean>1</boolean>"; then
-      echo "Remotes synced successfully to ${HOST_IP}"
-    else
-      echo "Warning: Sync may have failed for ${HOST_IP}"
-      echo "$SYNC_RESULT"
-    fi
+      if echo "$SYNC_RESULT" | grep -q "<boolean>1</boolean>"; then
+        echo "Remotes synced to ${HOST_IP}"
+      else
+        echo "Sync warning: $SYNC_RESULT"
+      fi
 
-    # Enable host to restart monitoring
-    curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.host.status</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-          <param><value><i4>${HOST_ID}</i4></value></param>
-          <param><value><i4>0</i4></value></param>
-        </params>
-      </methodCall>" > /dev/null
+      # Enable host
+      curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.host.status</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+            <param><value><i4>${HOST_ID}</i4></value></param>
+            <param><value><i4>0</i4></value></param>
+          </params>
+        </methodCall>" > /dev/null
 
-    echo "Host ${HOST_IP} enabled"
-  args:
+      echo "Host ${HOST_IP} enabled"
     executable: /bin/bash
   loop: "{{ hosts_to_register }}"
   delegate_to: localhost
@@ -167,27 +161,35 @@
 - name: Wait for hosts to become active
   ansible.builtin.pause:
     seconds: 60
-    prompt: "Waiting for hosts to be fully monitored (this may take up to a minute)..."
+    prompt: "Waiting for hosts to be fully monitored..."
 
 - name: Verify host status
-  ansible.builtin.shell: |
-    ONE_AUTH="{{ one_auth }}"
-    curl -s -X POST \
-      "http://{{ frontend_host }}:{{ frontend_port }}/RPC2" \
-      -d "<?xml version='1.0'?>
-      <methodCall>
-        <methodName>one.hostpool.info</methodName>
-        <params>
-          <param><value><string>${ONE_AUTH}</string></value></param>
-        </params>
-      </methodCall>" | grep -oP '<NAME>[^<]+</NAME>|<STATE>[^<]+</STATE>' | paste - - | sed 's/<[^>]*>//g'
+  ansible.builtin.shell:
+    cmd: |
+      ONE_AUTH="{{ one_auth }}"
+      API_URL="http://{{ frontend_host }}:{{ frontend_port }}/RPC2"
+      RESPONSE=$(curl -s -X POST "$API_URL" \
+        -d "<?xml version=\"1.0\"?>
+        <methodCall>
+          <methodName>one.hostpool.info</methodName>
+          <params>
+            <param><value><string>${ONE_AUTH}</string></value></param>
+          </params>
+        </methodCall>")
+
+      # Extract host names and states using sed
+      echo "$RESPONSE" | tr '\n' ' ' | sed 's/<HOST>/\n/g' | grep '<NAME>' | while read -r line; do
+        NAME=$(echo "$line" | sed -n 's/.*<NAME>\([^<]*\)<\/NAME>.*/\1/p')
+        STATE=$(echo "$line" | sed -n 's/.*<STATE>\([^<]*\)<\/STATE>.*/\1/p')
+        echo "${NAME}: state=${STATE}"
+      done
+    executable: /bin/bash
   delegate_to: localhost
   register: host_list
 
-- name: Display registered hosts and their states
+- name: Display registered hosts
   ansible.builtin.debug:
     msg: |
-      Registered hosts in OpenNebula:
+      Registered hosts:
       {{ host_list.stdout }}
-
-      State codes: 0=INIT, 1=MONITORING_MONITORED, 2=MONITORED (ready), 3=ERROR, 4=DISABLED
+      State: 0=INIT, 2=MONITORED (ready), 3=ERROR
