@@ -15,6 +15,53 @@ Only runs when:
 {{- $hasBootstrapAuth := or $hasBootstrapPassword $hasBootstrapKey }}
 {{- if and $shouldAutoGenerate $hasBootstrapAuth .Values.onedeploy.node.hosts }}
 ---
+# ServiceAccount for bootstrap job to read secrets
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "opennebula.fullname" . }}-bootstrap
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-7"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "opennebula.fullname" . }}-bootstrap
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-7"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ include "opennebula.fullname" . }}-ssh-generated"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "opennebula.fullname" . }}-bootstrap
+  labels:
+    {{- include "opennebula.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-7"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "opennebula.fullname" . }}-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opennebula.fullname" . }}-bootstrap
+    namespace: {{ .Release.Namespace }}
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -54,6 +101,7 @@ spec:
         {{- include "opennebula.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ssh-bootstrap
     spec:
+      serviceAccountName: {{ include "opennebula.fullname" . }}-bootstrap
       restartPolicy: OnFailure
       containers:
         - name: bootstrap
@@ -68,13 +116,13 @@ spec:
               echo "SSH Key Bootstrap"
               echo "========================================"
 
-              # Install openssh-client (and sshpass only if using password)
+              # Install openssh-client, jq, and sshpass only if using password
               echo "Installing required tools..."
               {{- if $hasBootstrapPassword }}
-              apk add --no-cache sshpass openssh-client
+              apk add --no-cache sshpass openssh-client jq curl
               AUTH_METHOD="password"
               {{- else }}
-              apk add --no-cache openssh-client
+              apk add --no-cache openssh-client jq curl
               AUTH_METHOD="key"
               # Setup bootstrap SSH key
               mkdir -p /root/.ssh
@@ -113,8 +161,14 @@ spec:
                 sleep 2
               done
 
-              # Extract and decode the public key
-              PUBKEY=$(echo "$RESPONSE" | grep -o '"id_rsa.pub":"[^"]*"' | cut -d'"' -f4 | base64 -d)
+              # Extract and decode the public key using jq
+              PUBKEY_B64=$(echo "$RESPONSE" | jq -r '.data["id_rsa.pub"]')
+              if [ -z "$PUBKEY_B64" ] || [ "$PUBKEY_B64" = "null" ]; then
+                echo "ERROR: Could not extract public key from secret"
+                echo "Response: $RESPONSE"
+                exit 1
+              fi
+              PUBKEY=$(echo "$PUBKEY_B64" | base64 -d)
               echo "Public key: ${PUBKEY}"
 
               # Bootstrap user (default to ansible_user from vars, or root)
@@ -129,10 +183,7 @@ spec:
               echo ""
               echo "Bootstrapping {{ $name }} ({{ $host.ansible_host }})..."
 
-              SSH_CMD="mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
-                grep -qF '\${PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || echo '\${PUBKEY}' >> ~/.ssh/authorized_keys && \
-                chmod 600 ~/.ssh/authorized_keys && \
-                echo 'Key added successfully'"
+              SSH_CMD="mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qF '${PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || echo '${PUBKEY}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo 'Key added successfully'"
 
               {{- if $hasBootstrapPassword }}
               if sshpass -p "$BOOTSTRAP_PASSWORD" ssh $SSH_OPTS ${BOOTSTRAP_USER}@{{ $host.ansible_host }} "$SSH_CMD"; then
