@@ -17,11 +17,9 @@ opennebula:
 onedeploy:
   enabled: true
 
-  # Bootstrap password for initial SSH key injection
-  # This is used ONLY to add the auto-generated SSH key to hypervisors
-  # Provide via: --set onedeploy.bootstrap.password="your-password"
-  bootstrap:
-    password: ""
+  # Bootstrap: provide your SSH key to inject the auto-generated key into hypervisors
+  # Use: --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
+  bootstrap: {}
 
   vars:
     ansible_user: root

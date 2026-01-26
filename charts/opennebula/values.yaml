@@ -261,20 +261,15 @@ onedeploy:
   ## --------------------------------------------------------
   ## Bootstrap Configuration (Initial SSH Access)
   ## --------------------------------------------------------
-  ## When SSH keys are auto-generated, we need initial access to
-  ## add the public key to hypervisors. Provide ONE of:
-  ##   - password: Root password for SSH (recommended, simple)
-  ##   - privateKey: Existing SSH key that can access hypervisors
+  ## When SSH keys are auto-generated, provide your existing SSH key
+  ## to inject the generated public key into hypervisors.
+  ## Use: --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
   bootstrap:
-    ## Root password for hypervisors (used only to inject the generated SSH key)
-    ## After bootstrap, all connections use the auto-generated key
-    password: ""
-
     ## SSH user for bootstrap (default: same as ansible_user or root)
     # user: root
 
-    ## Alternative: Use an existing SSH key for bootstrap
-    ## This key is used only to add the auto-generated key, then discarded
+    ## Your existing SSH private key that can access the hypervisors
+    ## Used once to inject the auto-generated key, then discarded
     # privateKey: ""
 
   ## --------------------------------------------------------
