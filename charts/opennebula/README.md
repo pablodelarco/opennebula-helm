@@ -149,18 +149,6 @@ Monitor provisioner progress:
 kubectl logs -f job/opennebula-host-provisioner
 ```
 
-## Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `image.tag` | OpenNebula version | `latest` |
-| `opennebula.adminPassword` | oneadmin password | `opennebula` |
-| `mariadb.enabled` | Deploy MariaDB | `true` |
-| `persistence.size` | Storage size | `20Gi` |
-| `ingress.enabled` | Enable ingress | `false` |
-| `onedeploy.enabled` | Enable provisioner | `false` |
-| `onedeploy.bootstrap.password` | SSH password for key injection | `""` |
-
 See [values.yaml](values.yaml) for all options.
 
 ## Architecture
