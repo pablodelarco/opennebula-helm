@@ -125,21 +125,14 @@ onedeploy:
         ansible_host: 192.168.1.11
 ```
 
-Install with progress output:
+Install:
 ```bash
-./scripts/install.sh opennebula values.yaml
+helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
-Output:
-```
-[1/5] Installing Helm chart... ✓ (14s)
-[2/5] Generating SSH keys... ✓ (2s)
-[3/5] Starting MariaDB... ✓ (45s)
-[4/5] Starting OpenNebula frontend... ✓ (68s)
-
-Core Installation Complete! (129s)
-
-[5/5] Host provisioner running in background...
+Monitor provisioner progress:
+```bash
+kubectl logs -f job/opennebula-host-provisioner
 ```
 
 ## Configuration

@@ -80,9 +80,9 @@ Install:
 helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
-Or use the install script for progress output:
+Monitor provisioner progress:
 ```bash
-./scripts/install.sh opennebula values.yaml
+kubectl logs -f job/opennebula-host-provisioner
 ```
 
 ## Configuration
