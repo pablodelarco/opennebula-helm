@@ -43,15 +43,67 @@ kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}
 Modify [values.yaml](values.yaml):
 
 ```yaml
+## Image configuration
+image:
+  repository: pablodelarco/opennebula
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+## OpenNebula settings
 opennebula:
   adminPassword: "your-secure-password"
 
-persistence:
-  size: 20Gi
-
-ingress:
+## MariaDB subchart configuration
+mariadb:
   enabled: true
-  hostname: opennebula.example.com
+  auth:
+    database: opennebula
+    username: oneadmin
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+## External database (when mariadb.enabled=false)
+externalDatabase:
+  host: ""
+  port: 3306
+  database: opennebula
+  username: oneadmin
+  password: ""
+
+## Persistence for OpenNebula data
+persistence:
+  enabled: true
+  size: 20Gi
+  accessMode: ReadWriteOnce
+
+## Service configuration
+service:
+  type: ClusterIP
+
+## Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  hostname: opennebula.local
+  tls:
+    enabled: false
+    secretName: ""
+
+## Resource limits
+resources: {}
+  # limits:
+  #   cpu: 2
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 500m
+  #   memory: 1Gi
+
+## Node placement
+nodeSelector: {}
+tolerations: []
+affinity: {}
 ```
 
 Install with custom values:
