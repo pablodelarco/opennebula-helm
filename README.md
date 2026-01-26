@@ -252,46 +252,43 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ### SSH Key Bootstrap
 
-The chart auto-generates an SSH keypair for communication between OpenNebula and hypervisors. The generated key must be added to your hosts. Choose ONE method:
+The chart auto-generates an SSH keypair for OpenNebula-to-hypervisor communication. A bootstrap job automatically injects this key into your hosts using your existing credentials.
 
-**Option A: Using password (for fresh hosts)**
+**Option A: Use your existing SSH key (recommended)**
 
-```yaml
-onedeploy:
-  bootstrap:
-    password: "your-ssh-password"  # Used once to inject the key
-```
+If you can already SSH to your hosts, just provide your private key:
 
-**Option B: Using your existing SSH key (recommended)**
-
-If you already have SSH access to your hosts, provide your private key:
-
-```yaml
-onedeploy:
-  bootstrap:
-    privateKey: |
-      -----BEGIN OPENSSH PRIVATE KEY-----
-      ... your existing private key ...
-      -----END OPENSSH PRIVATE KEY-----
-```
-
-Or via command line:
 ```bash
 helm install opennebula opennebula/opennebula -f values.yaml \
   --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
 ```
 
-The chart uses your key once to inject the auto-generated OpenNebula key, then all future connections use the new key.
+The bootstrap job uses your key once to inject the auto-generated OpenNebula key into each host's `authorized_keys`. After that, all OpenNebula connections use the new key automatically.
 
-**Option C: Manual injection (no bootstrap)**
+**Option B: Use password authentication**
 
-If you don't provide either password or privateKey:
+For hosts with password-based SSH access:
+
+```yaml
+onedeploy:
+  bootstrap:
+    password: "your-ssh-password"
+```
+
+**Option C: Manual injection**
+
+If you skip both options above, inject the key manually after install:
+
 ```bash
-# Get the generated public key after install
+# Get the generated public key
 kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
 
 # Add to each hypervisor
 ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
+
+# Restart the provisioner
+kubectl delete job opennebula-host-provisioner
+helm upgrade opennebula opennebula/opennebula -f values.yaml
 ```
 
 ### Provisioner Workflow

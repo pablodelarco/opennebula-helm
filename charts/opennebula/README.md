@@ -143,24 +143,28 @@ onedeploy:
         ansible_host: 192.168.1.11
 ```
 
-### SSH Key Options
+### SSH Key Bootstrap
 
-The chart auto-generates SSH keys. Choose how to inject them into your hosts:
+The chart auto-generates SSH keys. A bootstrap job injects them into your hosts automatically.
 
-**Option A:** Use password for automatic injection:
+**Option A: Use your existing SSH key (recommended)**
+
+If you can already SSH to your hosts:
+```bash
+helm install opennebula opennebula/opennebula -f values.yaml \
+  --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
+```
+
+**Option B: Use password authentication**
 ```yaml
 onedeploy:
   bootstrap:
     password: "your-ssh-password"
 ```
 
-**Option B:** Use your existing SSH key (recommended):
-```bash
-helm install opennebula opennebula/opennebula -f values.yaml \
-  --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
-```
+**Option C: Manual injection**
 
-**Option C:** Manual injection (if no bootstrap configured):
+If you skip bootstrap, inject the key manually:
 ```bash
 kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
 ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
