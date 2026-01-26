@@ -54,6 +54,21 @@ kubectl port-forward svc/opennebula 8080:2616
 
 Open http://localhost:8080/fireedge/sunstone
 
+**Remote access via SSH tunnel:**
+
+If you're connecting to the cluster via SSH, set up a tunnel to access the UI from your local machine:
+
+```bash
+# On the cluster node - start port-forward bound to all interfaces
+kubectl port-forward svc/opennebula 8080:2616 --address 0.0.0.0 &
+
+# On your local machine - create SSH tunnel
+ssh -L 8080:localhost:8080 user@cluster-node
+
+# Open in your browser
+# http://localhost:8080/fireedge/sunstone
+```
+
 Get the admin password:
 ```bash
 kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}' | base64 -d
