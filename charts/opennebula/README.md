@@ -40,7 +40,7 @@ kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}
 
 ## Installation with Host Provisioning
 
-Create a `values.yaml`:
+Modify [values.yaml](values.yaml):
 
 ```yaml
 opennebula:

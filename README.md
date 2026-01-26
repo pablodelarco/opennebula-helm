@@ -94,7 +94,7 @@ ssh -L 8080:localhost:8080 user@cluster-node "kubectl port-forward svc/opennebul
 
 ### With Host Provisioning
 
-Create `values.yaml`:
+Modify your [values.yaml](charts/opennebula/values.yaml):
 
 ```yaml
 opennebula:
