@@ -1,3 +1,5 @@
+<div align="center">
+
 # OpenNebula Helm Chart
 
 A production-ready Helm chart for deploying OpenNebula on Kubernetes, with automatic hypervisor provisioning via Ansible.
@@ -6,6 +8,8 @@ A production-ready Helm chart for deploying OpenNebula on Kubernetes, with autom
 [![OpenNebula](https://img.shields.io/badge/OpenNebula-7.0-green)](https://opennebula.io)
 [![Docker](https://img.shields.io/docker/pulls/pablodelarco/opennebula)](https://hub.docker.com/r/pablodelarco/opennebula)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+</div>
 
 ## Why This Chart?
 
