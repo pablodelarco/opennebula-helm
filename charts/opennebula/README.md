@@ -24,6 +24,9 @@ helm repo update
 # Install with default settings
 helm install opennebula opennebula/opennebula
 
+# Or install with custom values
+helm install opennebula opennebula/opennebula -f values.yaml
+
 # Access the UI
 kubectl port-forward svc/opennebula 8080:2616
 # Open http://localhost:8080/fireedge/sunstone

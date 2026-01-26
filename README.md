@@ -54,6 +54,9 @@ helm repo update
 
 # Install with defaults
 helm install opennebula opennebula/opennebula
+
+# Or install with custom values
+helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
 Get the admin password:
