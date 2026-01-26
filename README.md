@@ -252,33 +252,47 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ### SSH Key Bootstrap
 
-The chart auto-generates an SSH keypair for communication between OpenNebula and hypervisors. You need to get this key onto your hosts using ONE of these methods:
+The chart auto-generates an SSH keypair for communication between OpenNebula and hypervisors. The generated key must be added to your hosts. Choose ONE method:
 
-**Option A: Automatic injection (recommended for fresh hosts)**
+**Option A: Using password (for fresh hosts)**
 
-Provide the root password and the chart injects the key automatically:
 ```yaml
 onedeploy:
   bootstrap:
-    password: "your-ssh-password"  # Used once, then key-based auth takes over
+    password: "your-ssh-password"  # Used once to inject the key
 ```
 
-**Option B: Manual injection (if you already have SSH access)**
+**Option B: Using your existing SSH key (recommended)**
 
-If you already have SSH key access to your hosts, skip the password and inject the generated key manually:
+If you already have SSH access to your hosts, provide your private key:
 
+```yaml
+onedeploy:
+  bootstrap:
+    privateKey: |
+      -----BEGIN OPENSSH PRIVATE KEY-----
+      ... your existing private key ...
+      -----END OPENSSH PRIVATE KEY-----
+```
+
+Or via command line:
 ```bash
-# Install without bootstrap password
-helm install opennebula opennebula/opennebula -f values.yaml
+helm install opennebula opennebula/opennebula -f values.yaml \
+  --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
+```
 
-# Get the generated public key
+The chart uses your key once to inject the auto-generated OpenNebula key, then all future connections use the new key.
+
+**Option C: Manual injection (no bootstrap)**
+
+If you don't provide either password or privateKey:
+```bash
+# Get the generated public key after install
 kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
 
-# Add it to each hypervisor
-ssh root@<host-ip> "mkdir -p ~/.ssh && echo '<paste-key-here>' >> ~/.ssh/authorized_keys"
+# Add to each hypervisor
+ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
 ```
-
-The provisioner will wait and retry until SSH access works, so you can inject keys after installation starts.
 
 ### Provisioner Workflow
 

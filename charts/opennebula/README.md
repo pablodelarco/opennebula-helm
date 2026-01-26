@@ -145,14 +145,24 @@ onedeploy:
 
 ### SSH Key Options
 
-**Option A:** Provide `bootstrap.password` for automatic key injection (shown above).
+The chart auto-generates SSH keys. Choose how to inject them into your hosts:
 
-**Option B:** If you already have SSH access, skip the password and inject the generated key manually:
+**Option A:** Use password for automatic injection:
+```yaml
+onedeploy:
+  bootstrap:
+    password: "your-ssh-password"
+```
+
+**Option B:** Use your existing SSH key (recommended):
 ```bash
-# Get the generated public key after install
-kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
+helm install opennebula opennebula/opennebula -f values.yaml \
+  --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
+```
 
-# Add to each hypervisor
+**Option C:** Manual injection (if no bootstrap configured):
+```bash
+kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
 ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
 ```
 
