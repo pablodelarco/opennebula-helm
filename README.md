@@ -48,6 +48,9 @@ helm repo update
 # Install with defaults
 helm install opennebula opennebula/opennebula
 
+# Or install with custom values
+helm install opennebula opennebula/opennebula -f values.yaml
+
 # Access the UI
 kubectl port-forward svc/opennebula 8080:2616
 ```
@@ -76,7 +79,7 @@ kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}
 
 ### Custom Configuration
 
-Create `values.yaml`:
+Modify your [values.yaml](charts/opennebula/values.yaml):
 
 ```yaml
 opennebula:
