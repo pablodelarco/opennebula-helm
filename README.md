@@ -221,7 +221,3 @@ Issues and pull requests welcome at [github.com/pablodelarco/opennebula-helm](ht
 ## License
 
 Apache 2.0 — See [LICENSE](LICENSE) for details.
-
----
-
-**Note:** This is a community project, not officially affiliated with OpenNebula Systems.
