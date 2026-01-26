@@ -118,9 +118,6 @@ Add the `onedeploy` section to enable automatic hypervisor provisioning:
 onedeploy:
   enabled: true
 
-  bootstrap:
-    password: "your-ssh-password"  # Used once to inject generated keys
-
   vars:
     ansible_user: root
     one_version: "7.0"
@@ -145,34 +142,18 @@ onedeploy:
 
 ### SSH Key Bootstrap
 
-The chart auto-generates SSH keys. A bootstrap job injects them into your hosts automatically.
+The chart auto-generates SSH keys. Provide your existing SSH key to inject them automatically:
 
-**Option A: Use your existing SSH key (recommended)**
-
-If you can already SSH to your hosts:
 ```bash
 helm install opennebula opennebula/opennebula -f values.yaml \
   --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
 ```
 
-**Option B: Use password authentication**
-```yaml
-onedeploy:
-  bootstrap:
-    password: "your-ssh-password"
-```
+**Manual injection (if you skip bootstrap)**
 
-**Option C: Manual injection**
-
-If you skip bootstrap, inject the key manually:
 ```bash
 kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
 ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
-```
-
-Install:
-```bash
-helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
 Monitor provisioner progress:

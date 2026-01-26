@@ -1,19 +1,17 @@
 {{/*
 SSH Bootstrap Job
 Runs as pre-install hook AFTER ssh-keygen to inject the generated public key
-into hypervisors using password or existing SSH key authentication.
+into hypervisors using your existing SSH key.
 Only runs when:
 - onedeploy.enabled=true
-- onedeploy.bootstrap.password OR onedeploy.bootstrap.privateKey is provided
+- onedeploy.bootstrap.privateKey is provided
 - SSH keys are auto-generated (no manual keys provided)
 */}}
 {{- $hasManualKey := or .Values.onedeploy.provisioner.ssh.privateKey .Values.onedeploy.provisioner.ssh.existingSecret }}
 {{- $hasUserSSH := and .Values.ssh (or .Values.ssh.privateKey .Values.ssh.publicKey) }}
 {{- $shouldAutoGenerate := and .Values.onedeploy.enabled (default true .Values.ssh.autoGenerate) (not $hasManualKey) (not $hasUserSSH) }}
-{{- $hasBootstrapPassword := and .Values.onedeploy.bootstrap .Values.onedeploy.bootstrap.password }}
 {{- $hasBootstrapKey := and .Values.onedeploy.bootstrap .Values.onedeploy.bootstrap.privateKey }}
-{{- $hasBootstrapAuth := or $hasBootstrapPassword $hasBootstrapKey }}
-{{- if and $shouldAutoGenerate $hasBootstrapAuth .Values.onedeploy.node.hosts }}
+{{- if and $shouldAutoGenerate $hasBootstrapKey .Values.onedeploy.node.hosts }}
 ---
 # ServiceAccount for bootstrap job to read secrets
 apiVersion: v1
@@ -74,12 +72,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 type: Opaque
 stringData:
-  {{- if $hasBootstrapPassword }}
-  password: {{ .Values.onedeploy.bootstrap.password | quote }}
-  {{- end }}
-  {{- if $hasBootstrapKey }}
   id_rsa: {{ .Values.onedeploy.bootstrap.privateKey | quote }}
-  {{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -116,23 +109,16 @@ spec:
               echo "SSH Key Bootstrap"
               echo "========================================"
 
-              # Install openssh-client, jq, and sshpass only if using password
+              # Install required tools
               echo "Installing required tools..."
-              {{- if $hasBootstrapPassword }}
-              apk add --no-cache sshpass openssh-client jq curl
-              AUTH_METHOD="password"
-              {{- else }}
               apk add --no-cache openssh-client jq curl
-              AUTH_METHOD="key"
+
               # Setup bootstrap SSH key
               mkdir -p /root/.ssh
               cp /bootstrap-key/id_rsa /root/.ssh/id_rsa
               chmod 600 /root/.ssh/id_rsa
-              {{- end }}
-              echo "Authentication method: ${AUTH_METHOD}"
 
               # Get the generated public key from the secret
-              # We need to wait for the ssh-keygen job to complete
               SECRET_NAME="{{ include "opennebula.fullname" . }}-ssh-generated"
               NAMESPACE="{{ .Release.Namespace }}"
 
@@ -185,11 +171,7 @@ spec:
 
               SSH_CMD="mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qF '${PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || echo '${PUBKEY}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo 'Key added successfully'"
 
-              {{- if $hasBootstrapPassword }}
-              if sshpass -p "$BOOTSTRAP_PASSWORD" ssh $SSH_OPTS ${BOOTSTRAP_USER}@{{ $host.ansible_host }} "$SSH_CMD"; then
-              {{- else }}
               if ssh $SSH_OPTS -i /root/.ssh/id_rsa ${BOOTSTRAP_USER}@{{ $host.ansible_host }} "$SSH_CMD"; then
-              {{- end }}
                 echo "  ✓ {{ $name }} bootstrapped"
               else
                 echo "  ✗ {{ $name }} FAILED"
@@ -206,20 +188,10 @@ spec:
                 exit 1
               fi
               echo "========================================"
-          {{- if $hasBootstrapPassword }}
-          env:
-            - name: BOOTSTRAP_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "opennebula.fullname" . }}-bootstrap
-                  key: password
-          {{- end }}
-          {{- if $hasBootstrapKey }}
           volumeMounts:
             - name: bootstrap-key
               mountPath: /bootstrap-key
               readOnly: true
-          {{- end }}
           resources:
             limits:
               cpu: 100m
@@ -227,7 +199,6 @@ spec:
             requests:
               cpu: 50m
               memory: 32Mi
-      {{- if $hasBootstrapKey }}
       volumes:
         - name: bootstrap-key
           secret:
@@ -236,5 +207,4 @@ spec:
             items:
               - key: id_rsa
                 path: id_rsa
-      {{- end }}
 {{- end }}

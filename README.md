@@ -162,9 +162,6 @@ Add the `onedeploy` section to enable automatic hypervisor provisioning:
 onedeploy:
   enabled: true
 
-  bootstrap:
-    password: "your-ssh-password"  # Used once to inject generated keys
-
   vars:
     ansible_user: root
     one_version: "7.0"
@@ -187,9 +184,10 @@ onedeploy:
         ansible_host: 192.168.1.11
 ```
 
-Install:
+Install with your SSH key to enable automatic key injection:
 ```bash
-helm install opennebula opennebula/opennebula -f values.yaml
+helm install opennebula opennebula/opennebula -f values.yaml \
+  --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
 ```
 
 Monitor provisioner progress:
@@ -242,32 +240,18 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ### SSH Key Bootstrap
 
-The chart auto-generates an SSH keypair for OpenNebula-to-hypervisor communication. A bootstrap job automatically injects this key into your hosts using your existing credentials.
-
-**Option A: Use your existing SSH key (recommended)**
-
-If you can already SSH to your hosts, just provide your private key:
+The chart auto-generates an SSH keypair for OpenNebula-to-hypervisor communication. Provide your existing SSH key and the bootstrap job injects the generated key into your hosts automatically:
 
 ```bash
 helm install opennebula opennebula/opennebula -f values.yaml \
   --set-file onedeploy.bootstrap.privateKey=~/.ssh/id_rsa
 ```
 
-The bootstrap job uses your key once to inject the auto-generated OpenNebula key into each host's `authorized_keys`. After that, all OpenNebula connections use the new key automatically.
+Your key is used once to inject the auto-generated OpenNebula key into each host's `authorized_keys`. After that, all OpenNebula connections use the new key.
 
-**Option B: Use password authentication**
+**Manual injection (if you skip bootstrap)**
 
-For hosts with password-based SSH access:
-
-```yaml
-onedeploy:
-  bootstrap:
-    password: "your-ssh-password"
-```
-
-**Option C: Manual injection**
-
-If you skip both options above, inject the key manually after install:
+If you don't provide a bootstrap key, inject it manually after install:
 
 ```bash
 # Get the generated public key
