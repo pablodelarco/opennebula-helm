@@ -252,11 +252,33 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ### SSH Key Bootstrap
 
-When `onedeploy.bootstrap.password` is set:
-1. SSH keygen job creates a new keypair
-2. Bootstrap job uses your password to SSH into each hypervisor
-3. Adds the generated public key to `~/.ssh/authorized_keys`
-4. Future connections use key-based auth (password no longer needed)
+The chart auto-generates an SSH keypair for communication between OpenNebula and hypervisors. You need to get this key onto your hosts using ONE of these methods:
+
+**Option A: Automatic injection (recommended for fresh hosts)**
+
+Provide the root password and the chart injects the key automatically:
+```yaml
+onedeploy:
+  bootstrap:
+    password: "your-ssh-password"  # Used once, then key-based auth takes over
+```
+
+**Option B: Manual injection (if you already have SSH access)**
+
+If you already have SSH key access to your hosts, skip the password and inject the generated key manually:
+
+```bash
+# Install without bootstrap password
+helm install opennebula opennebula/opennebula -f values.yaml
+
+# Get the generated public key
+kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
+
+# Add it to each hypervisor
+ssh root@<host-ip> "mkdir -p ~/.ssh && echo '<paste-key-here>' >> ~/.ssh/authorized_keys"
+```
+
+The provisioner will wait and retry until SSH access works, so you can inject keys after installation starts.
 
 ### Provisioner Workflow
 
@@ -278,7 +300,26 @@ kubectl logs opennebula-0 -c opennebula
 
 ### Provisioner failing
 ```bash
+# Check provisioner logs
 kubectl logs job/opennebula-host-provisioner
+
+# Common issues:
+# - SSH access denied: Inject the generated key (see SSH Key Bootstrap section)
+# - API errors: The provisioner has retry logic, wait for it to complete
+```
+
+### SSH access denied
+If the provisioner can't connect to hosts:
+```bash
+# Get the generated public key
+kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
+
+# Add to each hypervisor
+ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
+
+# Delete and recreate the provisioner job
+kubectl delete job opennebula-host-provisioner
+helm upgrade opennebula opennebula/opennebula -f values.yaml
 ```
 
 ### Host not registering
@@ -286,12 +327,18 @@ kubectl logs job/opennebula-host-provisioner
 # Check from inside the pod
 kubectl exec opennebula-0 -c opennebula -- onehost list
 kubectl exec opennebula-0 -c opennebula -- onehost show 0
+
+# If host shows ERROR state, check the host's logs
+kubectl exec opennebula-0 -c opennebula -- ssh root@<host-ip> "journalctl -u libvirtd"
 ```
 
 ### SSH connectivity issues
 ```bash
-# Test SSH from the pod
-kubectl exec opennebula-0 -c opennebula -- ssh root@<host-ip> hostname
+# Test SSH from the OpenNebula pod
+kubectl exec opennebula-0 -c opennebula -- ssh -o StrictHostKeyChecking=no root@<host-ip> hostname
+
+# Test SSH from the provisioner
+kubectl logs job/opennebula-host-provisioner | grep -i ssh
 ```
 
 ## Contributing

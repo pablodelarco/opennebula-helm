@@ -143,6 +143,19 @@ onedeploy:
         ansible_host: 192.168.1.11
 ```
 
+### SSH Key Options
+
+**Option A:** Provide `bootstrap.password` for automatic key injection (shown above).
+
+**Option B:** If you already have SSH access, skip the password and inject the generated key manually:
+```bash
+# Get the generated public key after install
+kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
+
+# Add to each hypervisor
+ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
+```
+
 Install:
 ```bash
 helm install opennebula opennebula/opennebula -f values.yaml
@@ -187,9 +200,18 @@ kubectl describe pod opennebula-0
 kubectl logs opennebula-0 -c opennebula
 ```
 
-**Host provisioning failed:**
+**Provisioner failing / SSH access denied:**
 ```bash
+# Check logs
 kubectl logs job/opennebula-host-provisioner
+
+# If SSH fails, inject the generated key manually
+kubectl get secret opennebula-ssh-generated -o jsonpath='{.data.id_rsa\.pub}' | base64 -d
+ssh root@<host-ip> "echo '<key>' >> ~/.ssh/authorized_keys"
+
+# Recreate provisioner
+kubectl delete job opennebula-host-provisioner
+helm upgrade opennebula opennebula/opennebula -f values.yaml
 ```
 
 **Check OpenNebula status:**
