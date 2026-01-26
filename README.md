@@ -29,23 +29,13 @@ helm install opennebula opennebula/opennebula
 Deploys the complete OpenNebula control plane: oned, Sunstone, FireEdge, Scheduler, and MariaDB.
 
 ### Automatic Host Provisioning
-Define your hypervisors in `values.yaml` and the chart:
-- Installs OpenNebula node packages via Ansible
-- Configures libvirt for KVM virtualization
-- Registers hosts with the OpenNebula frontend
-- Creates virtual networks automatically
+Define your hypervisors in `values.yaml`. The chart installs packages, configures KVM, registers hosts, and creates networks automatically.
 
-### Auto-Generated SSH Keys
-No need to manually create or distribute SSH keys:
-- Pre-install hook generates a keypair
-- Bootstrap job injects the public key into hypervisors (using your existing SSH access)
-- Frontend and provisioner share the keys automatically
+### Automatic SSH Key Injection
+Provide your existing SSH key. The chart generates a new keypair for OpenNebula and injects it into all hypervisors — no manual key distribution.
 
 ### Non-Blocking Installation
-The provisioner runs in the background:
-- UI accessible in ~2 minutes
-- Hosts appear as provisioning completes
-- No waiting for Ansible to finish
+Web UI ready in ~2 minutes. Hosts provision in the background.
 
 ## Installation
 
