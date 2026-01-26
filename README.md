@@ -92,14 +92,79 @@ Or combine in one command from your local machine:
 ssh -L 8080:localhost:8080 user@cluster-node "kubectl port-forward svc/opennebula 8080:2616"
 ```
 
-### With Host Provisioning
+### Configuration
 
 Modify your [values.yaml](charts/opennebula/values.yaml):
 
 ```yaml
+## Image configuration
+image:
+  repository: pablodelarco/opennebula
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+## OpenNebula settings
 opennebula:
   adminPassword: "your-secure-password"
 
+## MariaDB subchart configuration
+mariadb:
+  enabled: true
+  auth:
+    database: opennebula
+    username: oneadmin
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+## External database (when mariadb.enabled=false)
+externalDatabase:
+  host: ""
+  port: 3306
+  database: opennebula
+  username: oneadmin
+  password: ""
+
+## Persistence for OpenNebula data
+persistence:
+  enabled: true
+  size: 20Gi
+  accessMode: ReadWriteOnce
+
+## Service configuration
+service:
+  type: ClusterIP
+
+## Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  hostname: opennebula.local
+  tls:
+    enabled: false
+    secretName: ""
+
+## Resource limits
+resources: {}
+  # limits:
+  #   cpu: 2
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 500m
+  #   memory: 1Gi
+
+## Node placement
+nodeSelector: {}
+tolerations: []
+affinity: {}
+```
+
+### With Host Provisioning
+
+Add the `onedeploy` section to enable automatic hypervisor provisioning:
+
+```yaml
 onedeploy:
   enabled: true
 
@@ -138,17 +203,17 @@ Monitor provisioner progress:
 kubectl logs -f job/opennebula-host-provisioner
 ```
 
-## Configuration
+## Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.tag` | OpenNebula version | `7.0.0` |
-| `opennebula.adminPassword` | oneadmin password | Auto-generated |
+| `image.tag` | OpenNebula version | `latest` |
+| `opennebula.adminPassword` | oneadmin password | `opennebula` |
 | `mariadb.enabled` | Deploy MariaDB | `true` |
+| `persistence.size` | Storage size | `20Gi` |
+| `ingress.enabled` | Enable ingress | `false` |
 | `onedeploy.enabled` | Enable provisioner | `false` |
 | `onedeploy.bootstrap.password` | SSH password for key injection | `""` |
-| `persistence.size` | Storage size | `10Gi` |
-| `ingress.enabled` | Enable ingress | `false` |
 
 See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all options.
 

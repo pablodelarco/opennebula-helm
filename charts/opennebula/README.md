@@ -38,26 +38,88 @@ Get the admin password:
 kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}' | base64 -d
 ```
 
-## Installation with Host Provisioning
+## Configuration
 
 Modify [values.yaml](values.yaml):
 
 ```yaml
+## Image configuration
+image:
+  repository: pablodelarco/opennebula
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+## OpenNebula settings
 opennebula:
   adminPassword: "your-secure-password"
 
+## MariaDB subchart configuration
+mariadb:
+  enabled: true
+  auth:
+    database: opennebula
+    username: oneadmin
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+## External database (when mariadb.enabled=false)
+externalDatabase:
+  host: ""
+  port: 3306
+  database: opennebula
+  username: oneadmin
+  password: ""
+
+## Persistence for OpenNebula data
+persistence:
+  enabled: true
+  size: 20Gi
+  accessMode: ReadWriteOnce
+
+## Service configuration
+service:
+  type: ClusterIP
+
+## Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  hostname: opennebula.local
+  tls:
+    enabled: false
+    secretName: ""
+
+## Resource limits
+resources: {}
+  # limits:
+  #   cpu: 2
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 500m
+  #   memory: 1Gi
+
+## Node placement
+nodeSelector: {}
+tolerations: []
+affinity: {}
+```
+
+## Host Provisioning
+
+Add the `onedeploy` section to enable automatic hypervisor provisioning:
+
+```yaml
 onedeploy:
   enabled: true
 
-  # Your SSH password to bootstrap hosts (used once to inject generated keys)
   bootstrap:
-    password: "your-ssh-password"
+    password: "your-ssh-password"  # Used once to inject generated keys
 
   vars:
     ansible_user: root
     one_version: "7.0"
-
-    # Virtual network configuration
     vn:
       default:
         managed: true
@@ -69,7 +131,6 @@ onedeploy:
             IP: 192.168.1.200
             SIZE: 50
 
-  # Hypervisor nodes to provision
   node:
     hosts:
       worker1:
@@ -88,18 +149,17 @@ Monitor provisioner progress:
 kubectl logs -f job/opennebula-host-provisioner
 ```
 
-## Configuration
+## Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.repository` | OpenNebula image | `pablodelarco/opennebula` |
-| `image.tag` | Image tag | `7.0.0` |
-| `opennebula.adminPassword` | oneadmin password | Auto-generated |
-| `mariadb.enabled` | Deploy MariaDB subchart | `true` |
-| `onedeploy.enabled` | Enable host provisioning | `false` |
-| `onedeploy.bootstrap.password` | SSH password for key injection | `""` |
+| `image.tag` | OpenNebula version | `latest` |
+| `opennebula.adminPassword` | oneadmin password | `opennebula` |
+| `mariadb.enabled` | Deploy MariaDB | `true` |
+| `persistence.size` | Storage size | `20Gi` |
 | `ingress.enabled` | Enable ingress | `false` |
-| `persistence.size` | PVC size | `10Gi` |
+| `onedeploy.enabled` | Enable provisioner | `false` |
+| `onedeploy.bootstrap.password` | SSH password for key injection | `""` |
 
 See [values.yaml](values.yaml) for all options.
 
