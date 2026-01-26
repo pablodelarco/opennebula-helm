@@ -111,18 +111,6 @@ Install with custom values:
 helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
-### Common Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `image.repository` | OpenNebula image | `pablodelarco/opennebula` |
-| `image.tag` | Image tag | `7.0.0` |
-| `opennebula.adminPassword` | oneadmin password | Auto-generated |
-| `mariadb.enabled` | Deploy MariaDB subchart | `true` |
-| `ingress.enabled` | Enable ingress | `false` |
-| `ingress.hostname` | Ingress hostname | `opennebula.local` |
-| `persistence.size` | PVC size | `10Gi` |
-
 See [values.yaml](values.yaml) for all options.
 
 ## Architecture

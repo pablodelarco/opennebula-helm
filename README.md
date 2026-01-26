@@ -150,17 +150,6 @@ Install:
 helm install opennebula opennebula/opennebula -f values.yaml
 ```
 
-## Configuration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `image.tag` | OpenNebula version | `7.0.0` |
-| `opennebula.adminPassword` | oneadmin password | Auto-generated |
-| `mariadb.enabled` | Deploy MariaDB | `true` |
-| `persistence.size` | Storage size | `10Gi` |
-| `ingress.enabled` | Enable ingress | `false` |
-| `ingress.hostname` | Ingress hostname | `opennebula.local` |
-
 See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all options.
 
 ## Architecture
