@@ -182,15 +182,58 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ## Adding Hypervisor Hosts
 
-After installation, add KVM/LXC hosts manually:
+OpenNebula manages VMs on external hypervisor hosts via SSH. The frontend (running in Kubernetes) connects to hypervisors to deploy and manage VMs.
+
+### Step 1: Get the SSH public key
 
 ```bash
-# Copy SSH key to hypervisor
-kubectl exec opennebula-0 -c opennebula -- cat /var/lib/one/.ssh/id_rsa.pub
-# Add this key to the hypervisor's oneadmin user
+kubectl exec -n opennebula opennebula-0 -c opennebula -- cat /var/lib/one/.ssh/id_rsa.pub
+```
 
-# Add the host
-kubectl exec opennebula-0 -c opennebula -- onehost create <hostname> -i kvm -v kvm
+Copy this key - you'll need it in the next step.
+
+### Step 2: Configure the hypervisor
+
+On each hypervisor host (the server where VMs will run), run:
+
+```bash
+# Create oneadmin user
+sudo useradd -m -d /var/lib/one -s /bin/bash oneadmin
+
+# Setup SSH
+sudo mkdir -p /var/lib/one/.ssh
+sudo chmod 700 /var/lib/one/.ssh
+echo "PASTE_SSH_KEY_FROM_STEP_1" | sudo tee /var/lib/one/.ssh/authorized_keys
+sudo chmod 600 /var/lib/one/.ssh/authorized_keys
+sudo chown -R oneadmin:oneadmin /var/lib/one
+
+# Install OpenNebula node packages (Ubuntu 24.04)
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
+echo "deb https://downloads.opennebula.io/repo/7.0/Ubuntu/24.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update
+sudo apt install -y opennebula-node-kvm
+
+# Add oneadmin to required groups
+sudo usermod -aG libvirt,kvm oneadmin
+```
+
+### Step 3: Add the host to OpenNebula
+
+```bash
+kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost create <hypervisor-ip> -i kvm -v kvm
+kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost sync --force
+```
+
+### Step 4: Verify
+
+```bash
+kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost list
+```
+
+The host should show `on` status. If it shows `err`, check SSH connectivity:
+
+```bash
+kubectl exec -n opennebula opennebula-0 -c opennebula -- sudo -u oneadmin ssh <hypervisor-ip> hostname
 ```
 
 For **automatic host provisioning**, see the [`feature/host-provisioning`](https://github.com/pablodelarco/opennebula-helm/tree/feature/host-provisioning) branch.
