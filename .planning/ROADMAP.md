@@ -79,24 +79,24 @@ Plans:
   3. VNM transparent proxy mode is configurable via values.yaml
   4. Pod hostname is stable and configurable (not random)
   5. No more port forwarding workarounds needed
-**Plans**: TBD (to be planned)
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Add missing ports (4124 UDP, 22 TCP) to Dockerfile, Service, StatefulSet
-- [ ] 04-02-PLAN.md — Configure VNM transparent proxy and hostname settings
+- [ ] 04-01-PLAN.md — Add monitoring and SSH ports to Dockerfile, Service, StatefulSet
+- [ ] 04-02-PLAN.md — Configure hostname and monitor address settings
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Docker Image | 2/2 | ✓ Complete | 2026-01-23 |
 | 2. CI/CD Pipeline | 2/2 | ✓ Complete | 2026-01-23 |
 | 3. Helm Chart Core | 4/4 | ✓ Complete | 2026-01-24 |
-| 4. Production Hardening | 0/2 | ○ Pending | - |
+| 4. Production Hardening | 0/2 | ○ Planned | - |
 
 ---
 *Roadmap created: 2025-01-23*
-*Last updated: 2026-02-03 - Added Phase 4 (v1.1 production hardening)*
+*Last updated: 2026-02-03 - Phase 4 plans created*
