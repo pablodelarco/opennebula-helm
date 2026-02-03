@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2025-01-23)
 
 ## Current Position
 
-Phase: 4 of 4 (Production Hardening) - PENDING
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-03 - Added v1.1 milestone for production hardening
+Phase: 4 of 4 (Production Hardening) - IN PROGRESS
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-03 - Completed 04-01-PLAN.md (Port Exposure)
 
-Progress: [########░░] 80% (v1 complete, v1.1 pending)
+Progress: [#########░] 90% (9/10 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 10 min
-- Total execution time: 73 min
+- Total plans completed: 9
+- Average duration: 9 min
+- Total execution time: 74 min
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [########░░] 80% (v1 complete, v1.1 pending)
 | 01-docker-image | 2 | 46 min | 23 min |
 | 02-cicd-pipeline | 2 | 16 min | 8 min |
 | 03-helm-chart-core | 4 | 11 min | 3 min |
+| 04-production-hardening | 1 | 1 min | 1 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (2 min), 03-02 (6 min), 03-03 (2 min), 03-04 (1 min)
-- Trend: Helm chart phase very efficient
+- Last 5 plans: 03-02 (6 min), 03-03 (2 min), 03-04 (1 min), 04-01 (1 min)
+- Trend: Production hardening phase very efficient
 
 *Updated after each plan completion*
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - [03-03]: busybox wget for Helm test with 5s timeout
 - [03-04]: chart-releaser-action@v1.7.0 for GitHub Pages publishing
 - [03-04]: helm dependency update loop for subchart handling
+- [04-01]: Port names monitord-tcp and monitord-udp for dual-protocol clarity
+- [04-01]: Ports added to both headless and external services
 
 ### Pending Todos
 
@@ -75,13 +78,13 @@ None.
 ### Blockers/Concerns
 
 Production deployment feedback (from colleague):
-- Port 4124 UDP missing - monitoring agents can't push metrics
-- Port 22 missing - SSH transfer manager doesn't work
+- ~~Port 4124 UDP missing - monitoring agents can't push metrics~~ RESOLVED in 04-01
+- ~~Port 22 missing - SSH transfer manager doesn't work~~ RESOLVED in 04-01
 - VNM needs transparent proxy config
 - Hostname issues requiring port forwarding workarounds
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Created v1.1 milestone for production hardening
-Resume file: None - ready to plan Phase 4
+Stopped at: Completed 04-01-PLAN.md (Port Exposure)
+Resume file: None - ready for 04-02-PLAN.md
