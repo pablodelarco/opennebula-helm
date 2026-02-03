@@ -60,7 +60,9 @@ RUN chmod +x /entrypoint.sh
 # 2616 - FireEdge/Sunstone web UI
 # 2474 - OneFlow API
 # 5030 - OneGate API
-EXPOSE 2633 2616 2474 5030
+# 4124 - Monitord (TCP+UDP for hypervisor monitoring probes)
+# 22   - SSH (transfer manager, driver operations)
+EXPOSE 2633 2616 2474 5030 4124 22
 
 # Healthcheck using oneuser show command
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
