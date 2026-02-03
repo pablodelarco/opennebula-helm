@@ -133,6 +133,40 @@ if [ -f /etc/one/onegate-server.conf ]; then
 fi
 
 # ----------------------------------------------------------------------------
+# HOSTNAME Configuration for Driver Operations
+# ----------------------------------------------------------------------------
+# HOSTNAME tells oned what address to advertise to hypervisors for driver operations.
+# Auto-detection often fails in containers, returning internal pod IPs.
+# Set OPENNEBULA_HOSTNAME to a stable, resolvable address.
+OPENNEBULA_HOSTNAME="${OPENNEBULA_HOSTNAME:-}"
+
+if [ -n "$OPENNEBULA_HOSTNAME" ] && [ "$OPENNEBULA_HOSTNAME" != "auto" ]; then
+    echo "Setting explicit HOSTNAME in oned.conf: $OPENNEBULA_HOSTNAME"
+    # Check if HOSTNAME line exists (commented or not) and update it
+    if grep -q "^#*\s*HOSTNAME\s*=" /etc/one/oned.conf; then
+        sed -i 's/^#*\s*HOSTNAME\s*=.*/HOSTNAME = "'"${OPENNEBULA_HOSTNAME}"'"/' /etc/one/oned.conf
+    else
+        # Add HOSTNAME if not present
+        echo "HOSTNAME = \"${OPENNEBULA_HOSTNAME}\"" >> /etc/one/oned.conf
+    fi
+fi
+
+# ----------------------------------------------------------------------------
+# MONITOR_ADDRESS Configuration for Monitoring Probes
+# ----------------------------------------------------------------------------
+# MONITOR_ADDRESS tells hypervisors where to send monitoring data.
+# Default "auto" may resolve to wrong address in containerized deployments.
+OPENNEBULA_MONITOR_ADDRESS="${OPENNEBULA_MONITOR_ADDRESS:-}"
+
+if [ -n "$OPENNEBULA_MONITOR_ADDRESS" ] && [ "$OPENNEBULA_MONITOR_ADDRESS" != "auto" ]; then
+    echo "Setting explicit MONITOR_ADDRESS in monitord.conf: $OPENNEBULA_MONITOR_ADDRESS"
+    # Update MONITOR_ADDRESS in the NETWORK section of monitord.conf
+    if [ -f /etc/one/monitord.conf ]; then
+        sed -i 's/MONITOR_ADDRESS\s*=\s*"[^"]*"/MONITOR_ADDRESS = "'"${OPENNEBULA_MONITOR_ADDRESS}"'"/' /etc/one/monitord.conf
+    fi
+fi
+
+# ----------------------------------------------------------------------------
 # Ensure proper ownership of runtime directories
 # ----------------------------------------------------------------------------
 # Pre-create log files with correct ownership before supervisord starts
