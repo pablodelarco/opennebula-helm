@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2025-01-23)
 
 **Core value:** A production-ready, self-updating OpenNebula deployment on Kubernetes that the community can use out of the box.
-**Current focus:** Phase 3 - Helm Chart Core (COMPLETE)
+**Current focus:** Phase 4 - Production Hardening
 
 ## Current Position
 
-Phase: 3 of 3 (Helm Chart Core) - COMPLETE
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-01-24 - Completed 03-04-PLAN.md
+Phase: 4 of 4 (Production Hardening) - PENDING
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-02-03 - Added v1.1 milestone for production hardening
 
-Progress: [##########] 100%
+Progress: [########░░] 80% (v1 complete, v1.1 pending)
 
 ## Performance Metrics
 
@@ -74,10 +74,14 @@ None.
 
 ### Blockers/Concerns
 
-None - all phases complete.
+Production deployment feedback (from colleague):
+- Port 4124 UDP missing - monitoring agents can't push metrics
+- Port 22 missing - SSH transfer manager doesn't work
+- VNM needs transparent proxy config
+- Hostname issues requiring port forwarding workarounds
 
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Completed 03-04-PLAN.md
-Resume file: None - milestone complete
+Last session: 2026-02-03
+Stopped at: Created v1.1 milestone for production hardening
+Resume file: None - ready to plan Phase 4

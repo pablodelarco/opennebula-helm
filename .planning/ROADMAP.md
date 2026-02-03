@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Docker Image** - Build Ubuntu 24.04 image with OpenNebula 7.0 and all services
 - [x] **Phase 2: CI/CD Pipeline** - Automated builds, release detection, vulnerability scanning
 - [x] **Phase 3: Helm Chart Core** - Complete Kubernetes deployment with MariaDB and ingress
+- [ ] **Phase 4: Production Hardening** - Networking fixes (ports, VNM, hostnames) from real-world deployment
 
 ## Phase Details
 
@@ -68,6 +69,22 @@ Plans:
 - [x] 03-03-PLAN.md — Create Ingress, NOTES.txt, and Helm test
 - [x] 03-04-PLAN.md — Setup chart publishing (GitHub Actions for chart-releaser)
 
+### Phase 4: Production Hardening
+**Goal**: OpenNebula chart works in production with proper networking for hypervisor communication
+**Depends on**: Phase 3 (extends existing chart)
+**Requirements**: PROD-01, PROD-02, PROD-03, PROD-04
+**Success Criteria** (what must be TRUE):
+  1. Hypervisor monitoring agents can push metrics via UDP 4124
+  2. SSH transfer manager can connect to hypervisors via port 22
+  3. VNM transparent proxy mode is configurable via values.yaml
+  4. Pod hostname is stable and configurable (not random)
+  5. No more port forwarding workarounds needed
+**Plans**: TBD (to be planned)
+
+Plans:
+- [ ] 04-01-PLAN.md — Add missing ports (4124 UDP, 22 TCP) to Dockerfile, Service, StatefulSet
+- [ ] 04-02-PLAN.md — Configure VNM transparent proxy and hostname settings
+
 ## Progress
 
 **Execution Order:**
@@ -77,8 +94,9 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Docker Image | 2/2 | ✓ Complete | 2026-01-23 |
 | 2. CI/CD Pipeline | 2/2 | ✓ Complete | 2026-01-23 |
-| 3. Helm Chart Core | 4/4 | Complete | 2026-01-24 |
+| 3. Helm Chart Core | 4/4 | ✓ Complete | 2026-01-24 |
+| 4. Production Hardening | 0/2 | ○ Pending | - |
 
 ---
 *Roadmap created: 2025-01-23*
-*Last updated: 2026-01-24*
+*Last updated: 2026-02-03 - Added Phase 4 (v1.1 production hardening)*

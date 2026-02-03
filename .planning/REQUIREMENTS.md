@@ -33,6 +33,17 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **HELM-06**: FireEdge accessible via Ingress with configurable hostname
 - [ ] **HELM-07**: values.yaml allows customization of resources, persistence, ingress
 
+## v1.1 Requirements
+
+Production hardening based on real-world deployment feedback.
+
+### Networking & Ports
+
+- [ ] **PROD-01**: Expose port 4124 UDP for monitoring (hypervisor probes)
+- [ ] **PROD-02**: Expose port 22 TCP for SSH transfer manager
+- [ ] **PROD-03**: Configure VNM for transparent proxy mode
+- [ ] **PROD-04**: Explicit hostname configuration for stable pod identity
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -82,11 +93,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HELM-06 | Phase 3 | Pending |
 | HELM-07 | Phase 3 | Pending |
 
+| PROD-01 | Phase 4 | Pending |
+| PROD-02 | Phase 4 | Pending |
+| PROD-03 | Phase 4 | Pending |
+| PROD-04 | Phase 4 | Pending |
+
 **Coverage:**
-- v1 requirements: 17 total
-- Mapped to phases: 17
+- v1 requirements: 17 total (all complete)
+- v1.1 requirements: 4 total (pending)
+- Mapped to phases: 21
 - Unmapped: 0
 
 ---
 *Requirements defined: 2025-01-23*
-*Last updated: 2026-01-23 - Phase 2 requirements complete*
+*Last updated: 2026-02-03 - Added v1.1 production hardening requirements*
