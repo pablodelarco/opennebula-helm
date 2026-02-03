@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-23)
 
 **Core value:** A production-ready, self-updating OpenNebula deployment on Kubernetes that the community can use out of the box.
-**Current focus:** Phase 4 - Production Hardening
+**Current focus:** Phase 4 - Production Hardening - COMPLETE
 
 ## Current Position
 
-Phase: 4 of 4 (Production Hardening) - IN PROGRESS
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-03 - Completed 04-01-PLAN.md (Port Exposure)
+Phase: 4 of 4 (Production Hardening) - COMPLETE
+Plan: 2 of 2 in current phase - COMPLETE
+Status: Project complete
+Last activity: 2026-02-03 - Completed 04-02-PLAN.md (Hostname & Monitor Address)
 
-Progress: [#########░] 90% (9/10 plans complete)
+Progress: [##########] 100% (10/10 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 9 min
-- Total execution time: 74 min
+- Total plans completed: 10
+- Average duration: 8 min
+- Total execution time: 76 min
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [#########░] 90% (9/10 plans complete)
 | 01-docker-image | 2 | 46 min | 23 min |
 | 02-cicd-pipeline | 2 | 16 min | 8 min |
 | 03-helm-chart-core | 4 | 11 min | 3 min |
-| 04-production-hardening | 1 | 1 min | 1 min |
+| 04-production-hardening | 2 | 3 min | 1.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (6 min), 03-03 (2 min), 03-04 (1 min), 04-01 (1 min)
+- Last 5 plans: 03-03 (2 min), 03-04 (1 min), 04-01 (1 min), 04-02 (2 min)
 - Trend: Production hardening phase very efficient
 
 *Updated after each plan completion*
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - [03-04]: helm dependency update loop for subchart handling
 - [04-01]: Port names monitord-tcp and monitord-udp for dual-protocol clarity
 - [04-01]: Ports added to both headless and external services
+- [04-02]: Empty hostname default uses StatefulSet FQDN for stable identity
+- [04-02]: MONITOR_ADDRESS only set when explicitly configured (preserves auto-detection)
+- [04-02]: VNM tproxy section is documentation-focused (hypervisor-side config)
 
 ### Pending Todos
 
@@ -80,11 +83,13 @@ None.
 Production deployment feedback (from colleague):
 - ~~Port 4124 UDP missing - monitoring agents can't push metrics~~ RESOLVED in 04-01
 - ~~Port 22 missing - SSH transfer manager doesn't work~~ RESOLVED in 04-01
-- VNM needs transparent proxy config
-- Hostname issues requiring port forwarding workarounds
+- ~~VNM needs transparent proxy config~~ DOCUMENTED in 04-02 (vnm.tproxy section)
+- ~~Hostname issues requiring port forwarding workarounds~~ RESOLVED in 04-02
+
+All production blockers resolved.
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 04-01-PLAN.md (Port Exposure)
-Resume file: None - ready for 04-02-PLAN.md
+Stopped at: Completed 04-02-PLAN.md (Hostname & Monitor Address) - PROJECT COMPLETE
+Resume file: None - all phases complete
