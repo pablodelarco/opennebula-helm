@@ -66,6 +66,17 @@ spec:
             - name: onegate
               containerPort: 5030
               protocol: TCP
+            # Monitoring ports for hypervisor probes
+            - name: monitord-tcp
+              containerPort: 4124
+              protocol: TCP
+            - name: monitord-udp
+              containerPort: 4124
+              protocol: UDP
+            # SSH for transfer manager
+            - name: ssh
+              containerPort: 22
+              protocol: TCP
           env:
             - name: ONEADMIN_PASSWORD
               valueFrom:
