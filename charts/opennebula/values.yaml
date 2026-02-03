@@ -13,6 +13,22 @@ opennebula:
   ## Default: opennebula (override in production!)
   adminPassword: "opennebula"
 
+  ## HOSTNAME for oned.conf - address advertised to hypervisors for driver operations
+  ## Options:
+  ##   - "" (empty/default) - uses StatefulSet FQDN for stable identity
+  ##   - "auto" - let OpenNebula auto-detect (may fail in containers)
+  ##   - explicit hostname/IP - use specific value
+  ## The default constructs: {release}-opennebula-0.{release}-opennebula-headless.{namespace}.svc.cluster.local
+  hostname: ""
+
+  ## MONITOR_ADDRESS for monitord.conf - where hypervisors send monitoring data
+  ## Options:
+  ##   - "" (empty/default) - uses auto-detection
+  ##   - "auto" - same as empty, auto-detect
+  ##   - explicit IP/hostname - use specific value
+  ## For external hypervisors, set to LoadBalancer IP or NodePort-accessible IP
+  monitorAddress: ""
+
 ## MariaDB subchart configuration
 ## ref: https://github.com/bitnami/charts/tree/main/bitnami/mariadb
 mariadb:
@@ -96,6 +112,18 @@ ssh:
   ## Provide existing keys (base64 encoded)
   # privateKey: ""
   # publicKey: ""
+
+## VNM Transparent Proxy configuration
+## Required for VMs to access OneGate when using isolated virtual networks
+## Note: This is hypervisor-side configuration - the chart provides documentation
+## and suggested values. Actual configuration happens on hypervisors via onehost sync.
+vnm:
+  tproxy:
+    ## Enable transparent proxy mode documentation in NOTES.txt
+    enabled: false
+    ## Remote address for OneGate proxy (frontend address reachable from hypervisors)
+    ## If empty, uses the Service address. For external hypervisors, use LoadBalancer IP.
+    onegateRemoteAddr: ""
 
 ## Resource limits and requests
 ## No defaults - set based on your environment
