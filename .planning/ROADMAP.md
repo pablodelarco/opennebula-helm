@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Docker Image** - Build Ubuntu 24.04 image with OpenNebula 7.0 and all services
 - [x] **Phase 2: CI/CD Pipeline** - Automated builds, release detection, vulnerability scanning
 - [x] **Phase 3: Helm Chart Core** - Complete Kubernetes deployment with MariaDB and ingress
-- [ ] **Phase 4: Production Hardening** - Networking fixes (ports, VNM, hostnames) from real-world deployment
+- [x] **Phase 4: Production Hardening** - Networking fixes (ports, VNM, hostnames) from real-world deployment
 
 ## Phase Details
 
@@ -82,8 +82,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Add monitoring and SSH ports to Dockerfile, Service, StatefulSet
-- [ ] 04-02-PLAN.md — Configure hostname and monitor address settings
+- [x] 04-01-PLAN.md — Add monitoring and SSH ports to Dockerfile, Service, StatefulSet
+- [x] 04-02-PLAN.md — Configure hostname and monitor address settings
 
 ## Progress
 
@@ -95,8 +95,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Docker Image | 2/2 | ✓ Complete | 2026-01-23 |
 | 2. CI/CD Pipeline | 2/2 | ✓ Complete | 2026-01-23 |
 | 3. Helm Chart Core | 4/4 | ✓ Complete | 2026-01-24 |
-| 4. Production Hardening | 0/2 | ○ Planned | - |
+| 4. Production Hardening | 2/2 | ✓ Complete | 2026-02-03 |
 
 ---
 *Roadmap created: 2025-01-23*
-*Last updated: 2026-02-03 - Phase 4 plans created*
+*Last updated: 2026-02-03 - Phase 4 complete*
