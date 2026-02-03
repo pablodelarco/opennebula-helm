@@ -37,18 +37,21 @@ fi
 ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-oneadmin}"
 DB_BACKEND="${DB_BACKEND:-sqlite}"
 
-# Check if oned has already bootstrapped
-# We use the existence of one_key (created during bootstrap) as the indicator
-# This works for both SQLite and MySQL backends without needing database clients
+# Always remove sunstone_auth on container start
+# oned creates this file during bootstrap, but if oned crashes mid-bootstrap,
+# the file exists but database is incomplete. oned will error if it sees
+# sunstone_auth but needs to bootstrap. Deleting it ensures clean startup.
+# oned will recreate it automatically.
+rm -f /var/lib/one/.one/sunstone_auth
+
+# Check if this is a fresh installation (no one_key = never bootstrapped)
 if [ ! -f /var/lib/one/.one/one_key ]; then
     echo "Fresh installation - preparing for clean bootstrap..."
     # Remove SQLite database if present (MySQL databases are external)
     rm -f /var/lib/one/one.db
-    # Remove ALL auth files - oned will recreate them during bootstrap
-    rm -f /var/lib/one/.one/sunstone_auth
+    # Remove oned-generated auth files - will be recreated during bootstrap
     rm -f /var/lib/one/.one/one_key
     rm -f /var/lib/one/.one/fireedge_key
-    rm -f /var/lib/one/.one/one_auth
     rm -f /var/lib/one/.one/oneflow_auth
     rm -f /var/lib/one/.one/onegate_auth
 
@@ -58,7 +61,14 @@ if [ ! -f /var/lib/one/.one/one_key ]; then
     chown oneadmin:oneadmin /var/lib/one/.one/one_auth
     chmod 600 /var/lib/one/.one/one_auth
 else
-    echo "Existing installation detected (one_key exists) - preserving auth files"
+    echo "Existing installation detected (one_key exists)"
+    # Ensure one_auth exists (may have been deleted manually)
+    if [ ! -f /var/lib/one/.one/one_auth ]; then
+        echo "Restoring one_auth file..."
+        echo "oneadmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/one_auth
+        chown oneadmin:oneadmin /var/lib/one/.one/one_auth
+        chmod 600 /var/lib/one/.one/one_auth
+    fi
 fi
 
 # Export ONE_AUTH for CLI tools
