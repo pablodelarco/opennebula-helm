@@ -37,28 +37,14 @@ fi
 ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-oneadmin}"
 DB_BACKEND="${DB_BACKEND:-sqlite}"
 
-# Check if oned has already bootstrapped (user_pool should have at least oneadmin)
-# The package creates an empty schema, but oned creates actual user data on first run
-if [ "$DB_BACKEND" = "mysql" ]; then
-    # For MySQL, check if database has users
-    DB_HOST="${DB_HOST:-localhost}"
-    DB_PORT="${DB_PORT:-3306}"
-    DB_USER="${DB_USER:-oneadmin}"
-    DB_NAME="${DB_NAME:-opennebula}"
-    DB_PASSWORD="${DB_PASSWORD:-}"
-
-    # Wait for MySQL to be ready and check user count
-    DB_BOOTSTRAPPED=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -e "SELECT COUNT(*) FROM user_pool;" 2>/dev/null || echo "0")
-else
-    # For SQLite, check local database
-    DB_BOOTSTRAPPED=$(sqlite3 /var/lib/one/one.db "SELECT COUNT(*) FROM user_pool;" 2>/dev/null || echo "0")
-fi
-
-if [ "$DB_BOOTSTRAPPED" = "0" ]; then
-    echo "Fresh database - removing package files for clean bootstrap..."
-    # Remove database so oned can create it fresh with correct schema and data (SQLite only)
+# Check if oned has already bootstrapped
+# We use the existence of one_key (created during bootstrap) as the indicator
+# This works for both SQLite and MySQL backends without needing database clients
+if [ ! -f /var/lib/one/.one/one_key ]; then
+    echo "Fresh installation - preparing for clean bootstrap..."
+    # Remove SQLite database if present (MySQL databases are external)
     rm -f /var/lib/one/one.db
-    # Remove ALL auth files - oned will recreate the internal ones during bootstrap
+    # Remove ALL auth files - oned will recreate them during bootstrap
     rm -f /var/lib/one/.one/sunstone_auth
     rm -f /var/lib/one/.one/one_key
     rm -f /var/lib/one/.one/fireedge_key
@@ -71,6 +57,8 @@ if [ "$DB_BOOTSTRAPPED" = "0" ]; then
     echo "oneadmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/one_auth
     chown oneadmin:oneadmin /var/lib/one/.one/one_auth
     chmod 600 /var/lib/one/.one/one_auth
+else
+    echo "Existing installation detected (one_key exists) - preserving auth files"
 fi
 
 # Export ONE_AUTH for CLI tools
