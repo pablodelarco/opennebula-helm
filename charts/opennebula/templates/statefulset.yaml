@@ -98,6 +98,19 @@ spec:
                 secretKeyRef:
                   name: {{ include "opennebula.mariadb.secretName" . }}
                   key: mariadb-password
+            # Hostname configuration for driver operations
+            - name: OPENNEBULA_HOSTNAME
+              {{- if .Values.opennebula.hostname }}
+              value: {{ .Values.opennebula.hostname | quote }}
+              {{- else }}
+              # Default to StatefulSet FQDN for stable identity
+              value: "{{ include "opennebula.fullname" . }}-0.{{ include "opennebula.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local"
+              {{- end }}
+            # Monitor address for hypervisor probes
+            {{- if and .Values.opennebula.monitorAddress (ne .Values.opennebula.monitorAddress "") }}
+            - name: OPENNEBULA_MONITOR_ADDRESS
+              value: {{ .Values.opennebula.monitorAddress | quote }}
+            {{- end }}
           livenessProbe:
             exec:
               command:
