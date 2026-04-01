@@ -110,3 +110,59 @@ jobs:
           echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.detect-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** ${{ needs.detect-version.outputs.version }}, latest" >> $GITHUB_STEP_SUMMARY
+
+  update-chart:
+    needs: [detect-version, build-scan-push]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if chart needs update
+        id: check
+        run: |
+          CURRENT=$(grep '^appVersion:' charts/opennebula/Chart.yaml | awk '{print $2}' | tr -d '"')
+          DETECTED="${{ needs.detect-version.outputs.version }}"
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "detected=$DETECTED" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" != "$DETECTED" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Chart appVersion $CURRENT -> $DETECTED"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Chart already at $CURRENT, no update needed"
+          fi
+
+      - name: Bump chart version
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          DETECTED="${{ steps.check.outputs.detected }}"
+          # Update appVersion
+          sed -i "s/^appVersion: .*/appVersion: \"${DETECTED}\"/" charts/opennebula/Chart.yaml
+          # Bump chart patch version
+          CHART_VERSION=$(grep '^version:' charts/opennebula/Chart.yaml | awk '{print $2}')
+          MAJOR=$(echo "$CHART_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$CHART_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$CHART_VERSION" | cut -d. -f3)
+          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          sed -i "s/^version: .*/version: ${NEW_VERSION}/" charts/opennebula/Chart.yaml
+          echo "Chart version: $CHART_VERSION -> $NEW_VERSION"
+          echo "new_chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add charts/opennebula/Chart.yaml
+          git commit -m "chore: bump chart to OpenNebula ${{ steps.check.outputs.detected }}"
+          git push
+
+      - name: Trigger chart release
+        if: steps.check.outputs.needs_update == 'true'
+        run: gh workflow run release-chart.yaml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
