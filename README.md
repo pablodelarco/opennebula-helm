@@ -158,26 +158,65 @@ See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all optio
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│              Kubernetes Cluster                  │
-│                                                  │
-│  ┌─────────────────┐       ┌──────────────┐     │
-│  │   OpenNebula    │       │   MariaDB    │     │
-│  │   StatefulSet   │       │  StatefulSet │     │
-│  │                 │       │              │     │
-│  │  ┌───────────┐  │       │              │     │
-│  │  │   oned    │◄─┼───────┤              │     │
-│  │  ├───────────┤  │       │              │     │
-│  │  │ Scheduler │  │       │              │     │
-│  │  ├───────────┤  │       │              │     │
-│  │  │ Sunstone  │  │       │              │     │
-│  │  ├───────────┤  │       │              │     │
-│  │  │ FireEdge  │  │       │              │     │
-│  │  └───────────┘  │       └──────────────┘     │
-│  └─────────────────┘                            │
-│                                                  │
-└─────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    User["👤 User / Browser"]
+    Hyp["🖥️ KVM Hypervisors"]
+
+    subgraph k8s["Kubernetes Cluster"]
+
+        subgraph one_ss["OpenNebula StatefulSet"]
+            direction TB
+            subgraph pod["Pod (2 containers)"]
+                direction LR
+                subgraph main["opennebula · supervisord"]
+                    direction TB
+                    oned["oned\n:2633"]
+                    sched["mm_sched"]
+                    sun["Sunstone\n:9869"]
+                    fe["FireEdge\n:2616"]
+                    flow["OneFlow\n:2474"]
+                    gate["OneGate\n:5030"]
+                    mon["Monitord\n:4124"]
+                end
+                proxy["nginx\nsidecar\n:8080"]
+            end
+            pvc_one[("PVC\n20 Gi\n/var/lib/one")]
+        end
+
+        subgraph maria_ss["MariaDB StatefulSet · Bitnami"]
+            maria[("MariaDB\n:3306")]
+            pvc_maria[("PVC\n8 Gi")]
+        end
+
+        svc{{"Service\nClusterIP"}}
+        ing{{"Ingress\n(optional)"}}
+    end
+
+    User -->|"HTTPS"| ing -->|":8080"| proxy -->|":2616"| fe
+    User -.->|"port-forward\n:2616"| svc
+    svc --> oned & flow & gate & mon
+    oned -->|"MySQL :3306"| maria
+    maria --- pvc_maria
+    main --- pvc_one
+    oned <-->|"SSH :22\ndrivers + transfer"| Hyp
+    Hyp -->|"UDP :4124\nmonitoring probes"| mon
+
+    classDef cluster fill:#f0f4ff,stroke:#4a6fa5,stroke-width:2px
+    classDef statefulset fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef pod fill:#fff8e1,stroke:#f9a825,stroke-width:1px
+    classDef container fill:#fff,stroke:#666,stroke-width:1px
+    classDef storage fill:#fce4ec,stroke:#c62828,stroke-width:1px
+    classDef service fill:#e3f2fd,stroke:#1565c0,stroke-width:1px
+    classDef external fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px
+
+    class k8s cluster
+    class one_ss,maria_ss statefulset
+    class pod pod
+    class main,proxy container
+    class pvc_one,pvc_maria,maria storage
+    class svc,ing service
+    class User,Hyp external
 ```
 
 ## Adding Hypervisor Hosts
