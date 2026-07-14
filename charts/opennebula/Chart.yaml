@@ -6,7 +6,7 @@ version: 0.2.4
 appVersion: "7.2.0"
 home: https://github.com/pablodelarco/opennebula-helm
 maintainers:
-  - name: opennebula-helm maintainers
+  - name: opennebula
     url: https://github.com/pablodelarco/opennebula-helm
 keywords:
   - opennebula
