@@ -49,8 +49,8 @@ Modify [values.yaml](values.yaml):
 ```yaml
 ## Image configuration
 image:
-  repository: pablodelarco/opennebula
-  tag: "latest"
+  repository: opennebula/opennebula
+  tag: ""  # empty = chart appVersion (pinned OpenNebula release)
   pullPolicy: IfNotPresent
 
 ## OpenNebula settings

@@ -37,11 +37,12 @@
 This image is the control-plane component of the [OpenNebula Helm Chart](https://github.com/pablodelarco/opennebula-helm), designed to run on Kubernetes with hypervisor nodes attached externally. See the chart repository for deployment instructions.
 
 ```bash
-docker pull pablodelarco/opennebula:__ONE_VERSION__
+docker pull opennebula/opennebula:__ONE_VERSION__
 ```
 
 ## Notes
 
-- Community-maintained image, built automatically from the [opennebula-helm](https://github.com/pablodelarco/opennebula-helm) repository. Not an official OpenNebula Systems release.
+- Built automatically from the [opennebula-helm](https://github.com/pablodelarco/opennebula-helm) repository, tracking the newest stable OpenNebula release.
+- The image content is verified at build time to contain exactly the OpenNebula version it is tagged as.
 - Every release is scanned with Trivy (CRITICAL/HIGH gate) before publishing.
 - This description is updated automatically by CI on each release.
