@@ -29,8 +29,18 @@
 
 ## Tags
 
-- `X.Y.Z` (e.g. `__ONE_VERSION__`): immutable-content builds of a specific OpenNebula release. The image is verified at build time to contain exactly the OpenNebula version it is tagged as.
-- `latest`: the newest **stable** OpenNebula release. Pre-release versions (patch `.80`/`.85`/`.90`) never move this tag.
+Current releases follow the standard SemVer tagging convention:
+
+| Tag | Meaning | Mutability |
+|-----|---------|------------|
+| `X.Y.Z` (e.g. `__ONE_VERSION__`) | a specific OpenNebula release | immutable |
+| `X.Y` (e.g. `7.2`) | newest patch of that minor line | floating |
+| `X` (e.g. `7`) | newest minor of that major line | floating |
+| `latest` | newest **stable** release | floating |
+
+- The image is verified at build time to contain exactly the OpenNebula version it is tagged as.
+- Pre-release versions (patch `.80`/`.85`/`.90`) never move `latest`, `X`, or `X.Y`.
+- **Legacy tags** dated 2021 (e.g. `6.2.0-1.ce-202111022053`, `6.0.0.3`) are the original OpenNebula Systems images, kept for historical reference. New releases use the scheme above.
 
 ## Usage
 

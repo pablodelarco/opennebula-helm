@@ -48,8 +48,16 @@ jobs:
           VERSION="${REQUESTED_VERSION:-$PINNED}"
           echo "Building OpenNebula ${VERSION} (pinned: ${PINNED})"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          # Only the pinned version moves :latest and the Hub description,
-          # so dispatch rebuilds of other versions cannot regress them
+          # Floating aliases: major (7) and minor (7.2). Only applied when
+          # building the pinned stable version, so they move forward with
+          # each stable release and never point at an older or beta build.
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION#*.}"; MINOR="${MAJOR}.${MINOR%%.*}"
+          echo "major=${MAJOR}" >> $GITHUB_OUTPUT
+          echo "minor=${MINOR}" >> $GITHUB_OUTPUT
+          # Only the pinned version moves :latest, the floating aliases, and
+          # the Hub description, so dispatch rebuilds of other versions
+          # (including betas) cannot regress them
           if [ "$VERSION" = "$PINNED" ]; then
             echo "is_latest=true" >> $GITHUB_OUTPUT
           else
@@ -97,8 +105,9 @@ jobs:
           scanners: 'vuln'
           trivyignores: 'docker/.trivyignore'
 
-      # Only tag :latest when building the pinned version, so rebuilding an
-      # older or pre-release version doesn't move the :latest pointer
+      # Always tag the immutable X.Y.Z. The floating aliases (X, X.Y, latest)
+      # are applied only when building the pinned stable version, so
+      # rebuilding an older or pre-release version can't move them.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -106,6 +115,8 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.is_latest == 'true' && format('{0}:{1}', env.IMAGE_NAME, steps.version.outputs.minor) || '' }}
+            ${{ steps.version.outputs.is_latest == 'true' && format('{0}:{1}', env.IMAGE_NAME, steps.version.outputs.major) || '' }}
             ${{ steps.version.outputs.is_latest == 'true' && format('{0}:latest', env.IMAGE_NAME) || '' }}
           build-args: |
             ONE_VERSION=${{ steps.version.outputs.version }}
@@ -131,4 +142,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tags:** ${{ steps.version.outputs.version }}${{ steps.version.outputs.is_latest == 'true' && ', latest' || '' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.version.outputs.version }}${{ steps.version.outputs.is_latest == 'true' && format(', {0}, {1}, latest', steps.version.outputs.minor, steps.version.outputs.major) || '' }}" >> $GITHUB_STEP_SUMMARY
