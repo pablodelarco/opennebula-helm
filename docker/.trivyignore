@@ -59,3 +59,12 @@ CVE-2026-46595
 CVE-2026-46597
 # Oracle advisory alias reported alongside the Go CVEs above
 ELSA-2026-22121
+
+# HIGH findings in the restic gobinary shipped with OpenNebula 7.2.0+
+# (built with Go 1.25.1, bundles go.opentelemetry.io/otel v1.36.0).
+# DoS via crafted baggage headers and PATH hijacking on BSD/Solaris;
+# fixable only by an upstream OpenNebula rebuild with newer otel.
+# Path: usr/share/one/remotes-dist/datastore/restic/restic
+CVE-2026-29181
+CVE-2026-24051
+CVE-2026-39883

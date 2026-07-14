@@ -2,11 +2,12 @@ apiVersion: v2
 name: opennebula
 description: A Helm chart for OpenNebula cloud management platform
 type: application
-version: 0.2.3
-appVersion: "7.3.80"
+version: 0.2.4
+appVersion: "7.2.0"
 home: https://github.com/pablodelarco/opennebula-helm
 maintainers:
-  - name: pablodelarco
+  - name: opennebula
+    url: https://github.com/pablodelarco/opennebula-helm
 keywords:
   - opennebula
   - cloud

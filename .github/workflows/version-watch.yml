@@ -1,0 +1,137 @@
+name: Version Watch
+
+# Nightly check for new upstream OpenNebula stable releases. When one
+# appears, generates an in-depth release analysis (package dependency
+# diffs, file manifest diffs, /etc/one config diffs) and opens a pull
+# request bumping the pinned version. Nothing builds or publishes until
+# that PR is reviewed and merged.
+
+on:
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: version-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GitHub automatically disables schedule-only workflows after 60 days
+      # without repository commit activity. On each scheduled run, if the
+      # latest commit is older than 50 days, push an empty commit to reset
+      # that timer and keep this workflow enabled.
+      - name: Keep workflow alive
+        if: github.event_name == 'schedule'
+        run: |
+          LAST_COMMIT_TS=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          AGE_DAYS=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+          echo "Last commit was ${AGE_DAYS} days ago"
+          if [ "$AGE_DAYS" -ge 50 ]; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive to keep scheduled workflow enabled"
+            git push
+          else
+            echo "Repository active within the last 50 days; no keepalive commit needed"
+          fi
+
+      - name: Detect newest stable release
+        id: detect
+        run: |
+          # Upstream marks pre-releases (betas/RCs) with patch numbers
+          # .80/.85/.90, so versions with patch >= 80 are excluded: only
+          # stable releases are proposed. Dev releases can still be built
+          # manually via the docker-build workflow_dispatch.
+          NEWEST_STABLE=$(curl -s https://downloads.opennebula.io/repo/ | \
+            grep -oP 'href="[0-9]+\.[0-9]+\.[0-9]+/"' | \
+            grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | \
+            awk -F. '$3 < 80' | \
+            sort -V | tail -1)
+          if [ -z "$NEWEST_STABLE" ]; then
+            echo "ERROR: failed to detect the newest stable version from downloads.opennebula.io"
+            exit 1
+          fi
+          PINNED=$(tr -d '[:space:]' < docker/ONE_VERSION)
+          echo "Pinned: ${PINNED}, newest stable upstream: ${NEWEST_STABLE}"
+          echo "new_version=${NEWEST_STABLE}" >> $GITHUB_OUTPUT
+          echo "pinned=${PINNED}" >> $GITHUB_OUTPUT
+          # Only move forward
+          NEWER=$(printf '%s\n%s\n' "$PINNED" "$NEWEST_STABLE" | sort -V | tail -1)
+          if [ "$PINNED" != "$NEWEST_STABLE" ] && [ "$NEWER" = "$NEWEST_STABLE" ]; then
+            echo "needs_bump=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_bump=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for existing bump PR
+        id: existing
+        if: steps.detect.outputs.needs_bump == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="bump/opennebula-${{ steps.detect.outputs.new_version }}"
+          # Skip if a PR for this version was ever opened (open, merged, or
+          # deliberately closed by a reviewer) so we don't re-propose daily
+          COUNT=$(gh pr list --head "$BRANCH" --state all --json number --jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "PR for ${BRANCH} already exists, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate release analysis
+        if: steps.detect.outputs.needs_bump == 'true' && steps.existing.outputs.skip == 'false'
+        run: |
+          .github/scripts/analyze-release.sh \
+            "${{ steps.detect.outputs.pinned }}" \
+            "${{ steps.detect.outputs.new_version }}" > /tmp/analysis.md
+          echo "Analysis generated ($(wc -l < /tmp/analysis.md) lines)"
+
+      - name: Create bump pull request
+        if: steps.detect.outputs.needs_bump == 'true' && steps.existing.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW="${{ steps.detect.outputs.new_version }}"
+          BRANCH="bump/opennebula-${NEW}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+
+          # Pin the new version for the Docker image build
+          echo "$NEW" > docker/ONE_VERSION
+
+          # Bump chart appVersion and patch-level chart version
+          sed -i "s/^appVersion: .*/appVersion: \"${NEW}\"/" charts/opennebula/Chart.yaml
+          CHART_VERSION=$(grep '^version:' charts/opennebula/Chart.yaml | awk '{print $2}')
+          MAJOR=$(echo "$CHART_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$CHART_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$CHART_VERSION" | cut -d. -f3)
+          sed -i "s/^version: .*/version: ${MAJOR}.${MINOR}.$((PATCH + 1))/" charts/opennebula/Chart.yaml
+
+          # Keep README version references in sync (badge + node repo URL)
+          SHORT="${NEW%.*}"
+          sed -i "s|OpenNebula-[0-9.]*-green|OpenNebula-${SHORT}-green|" README.md
+          sed -i "s|downloads.opennebula.io/repo/[0-9.]*/Ubuntu|downloads.opennebula.io/repo/${NEW}/Ubuntu|" README.md
+
+          git add docker/ONE_VERSION charts/opennebula/Chart.yaml README.md
+          git commit -m "chore: bump OpenNebula to ${NEW}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "chore: bump OpenNebula to ${NEW}" \
+            --body-file /tmp/analysis.md \
+            --base main \
+            --head "$BRANCH"
