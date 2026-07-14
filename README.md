@@ -5,7 +5,7 @@
 A production-ready Helm chart for deploying OpenNebula on Kubernetes.
 
 [![Helm](https://img.shields.io/badge/Helm-3.x-blue)](https://helm.sh)
-[![OpenNebula](https://img.shields.io/badge/OpenNebula-7.0-green)](https://opennebula.io)
+[![OpenNebula](https://img.shields.io/badge/OpenNebula-7.2-green)](https://opennebula.io)
 [![Docker](https://img.shields.io/docker/pulls/pablodelarco/opennebula)](https://hub.docker.com/r/pablodelarco/opennebula)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -89,7 +89,7 @@ Modify your [values.yaml](charts/opennebula/values.yaml):
 ## Image configuration
 image:
   repository: pablodelarco/opennebula
-  tag: "latest"
+  tag: ""  # empty = chart appVersion (pinned OpenNebula release)
   pullPolicy: IfNotPresent
 
 ## OpenNebula settings
@@ -218,8 +218,10 @@ sudo chmod 600 /var/lib/one/.ssh/authorized_keys
 sudo chown -R oneadmin:oneadmin /var/lib/one
 
 # Install OpenNebula node packages (Ubuntu 24.04)
+# IMPORTANT: node packages must match the frontend version deployed by the
+# chart (the chart's appVersion). Check with: helm show chart <repo>/opennebula
 wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
-echo "deb https://downloads.opennebula.io/repo/7.0/Ubuntu/24.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+echo "deb https://downloads.opennebula.io/repo/7.2.0/Ubuntu/24.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
 sudo apt update
 sudo apt install -y opennebula-node-kvm
 

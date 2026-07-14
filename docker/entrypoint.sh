@@ -123,6 +123,28 @@ DB = [ BACKEND = "mysql",\
 fi
 
 # ----------------------------------------------------------------------------
+# Database Schema Upgrade
+# ----------------------------------------------------------------------------
+# When the image version moves past the deployed database schema, oned
+# refuses to start until 'onedb upgrade' runs. For existing installations,
+# attempt the upgrade automatically with a backup on the persistent volume.
+# onedb reads the DB connection settings from oned.conf (configured above)
+# and is a no-op when the schema is already current. On failure, warn and
+# continue: oned logs the exact schema mismatch itself, and the backup
+# allows a manual restore.
+if [ -f /var/lib/one/.one/one_key ]; then
+    BACKUP_DIR=/var/lib/one/backups/db
+    mkdir -p "$BACKUP_DIR"
+    chown -R oneadmin:oneadmin "$BACKUP_DIR"
+    echo "Checking database schema version (onedb upgrade)..."
+    if ! sudo -u oneadmin onedb upgrade --backup "$BACKUP_DIR/onedb-$(date +%Y%m%d-%H%M%S).sql"; then
+        echo "WARNING: automatic 'onedb upgrade' failed. If oned refuses to start"
+        echo "with a database version mismatch, run 'onedb upgrade' manually in"
+        echo "this container. Backups (if created) are in $BACKUP_DIR."
+    fi
+fi
+
+# ----------------------------------------------------------------------------
 # Disable Scheduler (not needed in Kubernetes control-plane-only mode)
 # The "rank" scheduler module is not available in the base package
 # ----------------------------------------------------------------------------
