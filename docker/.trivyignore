@@ -28,8 +28,14 @@ CVE-2026-25679
 # google.golang.org/grpc - authorization bypass via improper HTTP/2 path validation
 CVE-2026-33186
 
-# Go stdlib vulnerabilities in bundled OpenNebula Go binaries (built with Go 1.23.3)
-# All fixable only by an upstream rebuild with Go 1.25.x/1.26.x; DoS / symlink-traversal class
+# HIGH findings in the bundled restic gobinary (built with Go 1.23.3):
+# Go stdlib + golang.org/x/{net,crypto} advisories, all fixable only by an
+# upstream OpenNebula rebuild with a newer Go toolchain. Mostly DoS /
+# symlink-traversal class. Path: usr/share/one/remotes-dist/datastore/restic/restic
+CVE-2024-45338
+CVE-2025-47913
+CVE-2026-25681
+CVE-2026-27136
 CVE-2026-27145
 CVE-2026-32280
 CVE-2026-32281
@@ -37,7 +43,19 @@ CVE-2026-32283
 CVE-2026-33811
 CVE-2026-33814
 CVE-2026-39820
+CVE-2026-39821
 CVE-2026-39822
+CVE-2026-39828
+CVE-2026-39829
+CVE-2026-39830
+CVE-2026-39831
+CVE-2026-39832
+CVE-2026-39835
 CVE-2026-39836
 CVE-2026-42499
 CVE-2026-42504
+CVE-2026-42508
+CVE-2026-46595
+CVE-2026-46597
+# Oracle advisory alias reported alongside the Go CVEs above
+ELSA-2026-22121
