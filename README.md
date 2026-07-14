@@ -6,7 +6,7 @@ A production-ready Helm chart for deploying OpenNebula on Kubernetes.
 
 [![Helm](https://img.shields.io/badge/Helm-3.x-blue)](https://helm.sh)
 [![OpenNebula](https://img.shields.io/badge/OpenNebula-7.2-green)](https://opennebula.io)
-[![Docker](https://img.shields.io/docker/pulls/pablodelarco/opennebula)](https://hub.docker.com/r/pablodelarco/opennebula)
+[![Docker](https://img.shields.io/docker/pulls/opennebula/opennebula)](https://hub.docker.com/r/opennebula/opennebula)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
@@ -88,7 +88,7 @@ Modify your [values.yaml](charts/opennebula/values.yaml):
 ```yaml
 ## Image configuration
 image:
-  repository: pablodelarco/opennebula
+  repository: opennebula/opennebula
   tag: ""  # empty = chart appVersion (pinned OpenNebula release)
   pullPolicy: IfNotPresent
 
