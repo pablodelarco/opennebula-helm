@@ -48,16 +48,14 @@ jobs:
           VERSION="${REQUESTED_VERSION:-$PINNED}"
           echo "Building OpenNebula ${VERSION} (pinned: ${PINNED})"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          # Floating minor alias (e.g. 7.2). Only applied when building the
-          # pinned stable version, so it moves forward with each stable
-          # release and never points at an older or beta build. No bare-major
-          # (7) alias: crossing minors can trigger a DB schema migration, so
-          # operators should opt into a minor line explicitly.
-          MINOR="${VERSION#*.}"; MINOR="${VERSION%%.*}.${MINOR%%.*}"
-          echo "minor=${MINOR}" >> $GITHUB_OUTPUT
-          # Only the pinned version moves :latest, the floating aliases, and
-          # the Hub description, so dispatch rebuilds of other versions
-          # (including betas) cannot regress them
+          # Only immutable full X.Y.Z version tags are published (plus the
+          # floating :latest). No abbreviated X.Y or bare-major X aliases:
+          # every version tag is an exact, reproducible release, and crossing
+          # minors can require a DB schema migration, so operators pin
+          # explicitly.
+          # Only the pinned version moves :latest and the Hub description, so
+          # dispatch rebuilds of other versions (including betas) cannot
+          # regress them
           if [ "$VERSION" = "$PINNED" ]; then
             echo "is_latest=true" >> $GITHUB_OUTPUT
           else
@@ -105,9 +103,9 @@ jobs:
           scanners: 'vuln'
           trivyignores: 'docker/.trivyignore'
 
-      # Always tag the immutable X.Y.Z. The floating aliases (X.Y, latest) are
-      # applied only when building the pinned stable version, so rebuilding an
-      # older or pre-release version can't move them.
+      # Always tag the immutable X.Y.Z. :latest is applied only when building
+      # the pinned stable version, so rebuilding an older or pre-release
+      # version can't move it.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -115,7 +113,6 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ steps.version.outputs.is_latest == 'true' && format('{0}:{1}', env.IMAGE_NAME, steps.version.outputs.minor) || '' }}
             ${{ steps.version.outputs.is_latest == 'true' && format('{0}:latest', env.IMAGE_NAME) || '' }}
           build-args: |
             ONE_VERSION=${{ steps.version.outputs.version }}
@@ -141,4 +138,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tags:** ${{ steps.version.outputs.version }}${{ steps.version.outputs.is_latest == 'true' && format(', {0}, latest', steps.version.outputs.minor) || '' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.version.outputs.version }}${{ steps.version.outputs.is_latest == 'true' && ', latest' || '' }}" >> $GITHUB_STEP_SUMMARY
