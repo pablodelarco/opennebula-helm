@@ -1,5 +1,10 @@
 name: Docker Build and Push
 
+# Builds the version pinned in docker/ONE_VERSION. New upstream releases are
+# proposed as pull requests by the version-watch workflow (with a generated
+# release analysis), so every version bump gets human review before anything
+# is built or published.
+
 on:
   push:
     branches: [main]
@@ -9,14 +14,14 @@ on:
   workflow_dispatch:
     inputs:
       opennebula_version:
-        description: 'OpenNebula version to build (optional, auto-detects latest if empty)'
+        description: 'OpenNebula version to build (optional, defaults to the version pinned in docker/ONE_VERSION; other versions get their version tag but never :latest)'
         required: false
         type: string
-  schedule:
-    - cron: '15 3 * * *'
 
+# Keyed by event name so a manual dispatch rebuild and a push build cannot
+# cancel each other
 concurrency:
-  group: docker-build-${{ github.ref }}
+  group: docker-build-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -24,71 +29,32 @@ env:
   IMAGE_NAME: pablodelarco/opennebula
 
 jobs:
-  detect-version:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      version: ${{ steps.detect.outputs.version }}
-      should_build: ${{ steps.detect.outputs.should_build }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # GitHub automatically disables schedule-only workflows after 60 days
-      # without repository commit activity. On each scheduled run, if the
-      # latest commit is older than 50 days, push an empty commit to reset
-      # that timer and keep this workflow enabled.
-      - name: Keep workflow alive
-        if: github.event_name == 'schedule'
-        run: |
-          LAST_COMMIT_TS=$(git log -1 --format=%ct)
-          NOW=$(date +%s)
-          AGE_DAYS=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
-          echo "Last commit was ${AGE_DAYS} days ago"
-          if [ "$AGE_DAYS" -ge 50 ]; then
-            git config user.name "github-actions"
-            git config user.email "github-actions@users.noreply.github.com"
-            git commit --allow-empty -m "chore: keepalive to keep scheduled workflow enabled"
-            git push
-          else
-            echo "Repository active within the last 50 days; no keepalive commit needed"
-          fi
-
-      - name: Detect OpenNebula version
-        id: detect
-        run: |
-          # Use workflow_dispatch input if provided
-          if [ -n "${{ github.event.inputs.opennebula_version }}" ]; then
-            VERSION="${{ github.event.inputs.opennebula_version }}"
-          else
-            # Detect latest from OpenNebula downloads page
-            VERSION=$(curl -s https://downloads.opennebula.io/repo/ | \
-              grep -oP 'href="[0-9]+\.[0-9]+\.[0-9]+/"' | \
-              grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | \
-              sort -V | tail -1)
-          fi
-          echo "Detected version: ${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-          # workflow_dispatch always builds (explicit user request)
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          elif docker manifest inspect ${{ env.IMAGE_NAME }}:${VERSION} > /dev/null 2>&1; then
-            echo "Image already exists for version ${VERSION}, skipping build"
-            echo "should_build=false" >> $GITHUB_OUTPUT
-          else
-            echo "New version detected, triggering build"
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          fi
-
   build-scan-push:
-    needs: detect-version
-    if: needs.detect-version.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.opennebula_version }}
+        run: |
+          PINNED=$(tr -d '[:space:]' < docker/ONE_VERSION)
+          if [ -z "$PINNED" ]; then
+            echo "ERROR: docker/ONE_VERSION is empty"
+            exit 1
+          fi
+          VERSION="${REQUESTED_VERSION:-$PINNED}"
+          echo "Building OpenNebula ${VERSION} (pinned: ${PINNED})"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          # Only the pinned version moves :latest and the Hub description,
+          # so dispatch rebuilds of other versions cannot regress them
+          if [ "$VERSION" = "$PINNED" ]; then
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -105,6 +71,20 @@ jobs:
           context: ./docker
           load: true
           tags: ${{ env.IMAGE_NAME }}:scan
+          build-args: |
+            ONE_VERSION=${{ steps.version.outputs.version }}
+
+      # Guard against tag/content drift: the image must actually contain the
+      # OpenNebula version it will be tagged as
+      - name: Verify installed version matches tag
+        run: |
+          EXPECTED="${{ steps.version.outputs.version }}"
+          INSTALLED=$(docker run --rm --entrypoint dpkg-query ${{ env.IMAGE_NAME }}:scan -W -f='${Version}' opennebula)
+          echo "Installed: ${INSTALLED}, expected: ${EXPECTED}"
+          if [ "${INSTALLED%%-*}" != "$EXPECTED" ]; then
+            echo "ERROR: image contains OpenNebula ${INSTALLED} but would be tagged ${EXPECTED}"
+            exit 1
+          fi
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
@@ -117,77 +97,38 @@ jobs:
           scanners: 'vuln'
           trivyignores: 'docker/.trivyignore'
 
+      # Only tag :latest when building the pinned version, so rebuilding an
+      # older or pre-release version doesn't move the :latest pointer
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: ./docker
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ needs.detect-version.outputs.version }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.is_latest == 'true' && format('{0}:latest', env.IMAGE_NAME) || '' }}
+          build-args: |
+            ONE_VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Render Docker Hub description
+        if: steps.version.outputs.is_latest == 'true'
+        run: sed "s/__ONE_VERSION__/${{ steps.version.outputs.version }}/g" docker/README.md > /tmp/dockerhub-description.md
+
+      - name: Update Docker Hub description
+        if: steps.version.outputs.is_latest == 'true'
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAME }}
+          readme-filepath: /tmp/dockerhub-description.md
 
       - name: Summary
         run: |
           echo "## Docker Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ needs.detect-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tags:** ${{ needs.detect-version.outputs.version }}, latest" >> $GITHUB_STEP_SUMMARY
-
-  update-chart:
-    needs: [detect-version, build-scan-push]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check if chart needs update
-        id: check
-        run: |
-          CURRENT=$(grep '^appVersion:' charts/opennebula/Chart.yaml | awk '{print $2}' | tr -d '"')
-          DETECTED="${{ needs.detect-version.outputs.version }}"
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "detected=$DETECTED" >> $GITHUB_OUTPUT
-          if [ "$CURRENT" != "$DETECTED" ]; then
-            echo "needs_update=true" >> $GITHUB_OUTPUT
-            echo "Chart appVersion $CURRENT -> $DETECTED"
-          else
-            echo "needs_update=false" >> $GITHUB_OUTPUT
-            echo "Chart already at $CURRENT, no update needed"
-          fi
-
-      - name: Bump chart version
-        if: steps.check.outputs.needs_update == 'true'
-        run: |
-          DETECTED="${{ steps.check.outputs.detected }}"
-          # Update appVersion
-          sed -i "s/^appVersion: .*/appVersion: \"${DETECTED}\"/" charts/opennebula/Chart.yaml
-          # Bump chart patch version
-          CHART_VERSION=$(grep '^version:' charts/opennebula/Chart.yaml | awk '{print $2}')
-          MAJOR=$(echo "$CHART_VERSION" | cut -d. -f1)
-          MINOR=$(echo "$CHART_VERSION" | cut -d. -f2)
-          PATCH=$(echo "$CHART_VERSION" | cut -d. -f3)
-          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
-          sed -i "s/^version: .*/version: ${NEW_VERSION}/" charts/opennebula/Chart.yaml
-          echo "Chart version: $CHART_VERSION -> $NEW_VERSION"
-          echo "new_chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Commit and push
-        if: steps.check.outputs.needs_update == 'true'
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add charts/opennebula/Chart.yaml
-          git commit -m "chore: bump chart to OpenNebula ${{ steps.check.outputs.detected }}"
-          git push
-
-      - name: Trigger chart release
-        if: steps.check.outputs.needs_update == 'true'
-        run: gh workflow run release-chart.yaml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.version.outputs.version }}${{ steps.version.outputs.is_latest == 'true' && ', latest' || '' }}" >> $GITHUB_STEP_SUMMARY
