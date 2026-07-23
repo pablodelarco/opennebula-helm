@@ -49,7 +49,7 @@ Modify [values.yaml](values.yaml):
 ```yaml
 ## Image configuration
 image:
-  repository: opennebula/opennebula
+  repository: pablodelarco/opennebula
   tag: ""  # empty = chart appVersion (pinned OpenNebula release)
   pullPolicy: IfNotPresent
 

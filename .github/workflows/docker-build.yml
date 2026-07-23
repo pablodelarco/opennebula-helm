@@ -26,7 +26,7 @@ concurrency:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: opennebula/opennebula
+  IMAGE_NAME: pablodelarco/opennebula
 
 jobs:
   build-scan-push:

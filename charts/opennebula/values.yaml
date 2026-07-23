@@ -3,7 +3,7 @@
 
 ## Image configuration
 image:
-  repository: opennebula/opennebula
+  repository: pablodelarco/opennebula
   ## Defaults to the chart's appVersion when empty, so each chart release
   ## deploys the exact OpenNebula version it was published for
   tag: ""
