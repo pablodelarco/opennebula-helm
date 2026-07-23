@@ -81,4 +81,14 @@ entries:
     urls:
     - https://github.com/pablodelarco/opennebula-helm/releases/download/opennebula-0.2.5/opennebula-0.2.5.tgz
     version: "0.2.5"
-generated: "2026-07-14T11:43:46Z"
+  - apiVersion: v2
+    appVersion: "7.2.0"
+    created: "2026-07-23T09:25:34Z"
+    description: "A Helm chart for OpenNebula cloud management platform"
+    digest: aaafcdd77acad0863182435f477070f23285ecbf5bebad7100adb9fe8b41e351
+    name: opennebula
+    type: application
+    urls:
+    - https://github.com/pablodelarco/opennebula-helm/releases/download/opennebula-0.2.6/opennebula-0.2.6.tgz
+    version: "0.2.6"
+generated: "2026-07-23T09:25:57Z"
