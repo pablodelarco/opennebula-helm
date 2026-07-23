@@ -68,3 +68,10 @@ ELSA-2026-22121
 CVE-2026-29181
 CVE-2026-24051
 CVE-2026-39883
+
+# gRPC-Go xDS RBAC / HTTP/2 advisory in the bundled restic gobinary
+# (google.golang.org/grpc v1.74.2, fixed in 1.82.1). Same vendored binary as the
+# other restic Go advisories above; fixable only by an upstream OpenNebula
+# rebuild with a newer grpc-go. Surfaced on rebuilds after 2026-07-14.
+# Path: usr/share/one/remotes-dist/datastore/restic/restic
+GHSA-hrxh-6v49-42gf
