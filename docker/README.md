@@ -4,8 +4,6 @@
 
 [OpenNebula](https://opennebula.io) is an open-source cloud and edge computing platform for managing virtualized infrastructure, containers, and multi-cloud deployments.
 
-**Latest Version:** __ONE_VERSION__ (Community Edition)
-
 **Base Image:** Ubuntu 24.04 LTS | **Architecture:** linux/amd64
 
 ## Included Components
@@ -35,7 +33,7 @@ Current releases follow the standard SemVer tagging convention:
 
 | Tag | Meaning | Mutability |
 |-----|---------|------------|
-| `X.Y.Z` (e.g. `__ONE_VERSION__`) | a specific OpenNebula release | immutable |
+| `X.Y.Z` | a specific OpenNebula release | immutable |
 | `latest` | newest **stable** release | floating |
 
 - The image is verified at build time to contain exactly the OpenNebula version it is tagged as.
@@ -48,7 +46,7 @@ Current releases follow the standard SemVer tagging convention:
 This image is the control-plane component of the [OpenNebula Helm Chart](https://github.com/pablodelarco/opennebula-helm), designed to run on Kubernetes with hypervisor nodes attached externally. See the chart repository for deployment instructions.
 
 ```bash
-docker pull pablodelarco/opennebula:__ONE_VERSION__
+docker pull pablodelarco/opennebula:latest
 ```
 
 ## Notes
