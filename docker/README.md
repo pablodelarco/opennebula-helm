@@ -1,6 +1,6 @@
 # OpenNebula Front-End (personal build)
 
-> **Unofficial, personal image.** Maintained by Pablo del Arco for the [OpenNebula Helm chart](https://github.com/pablodelarco/opennebula-helm) and the EMERALD project. This is **not** an official OpenNebula Systems image and is not covered by OpenNebula's testing, CI, or support. For official software and support, go to [opennebula.io](https://opennebula.io).
+> **Unofficial, personal image.** Maintained by Pablo del Arco for the [OpenNebula Helm chart](https://github.com/pablodelarco/opennebula-helm). This is **not** an official OpenNebula Systems image and is not covered by OpenNebula's testing, CI, or support. For official software and support, go to [opennebula.io](https://opennebula.io).
 
 [OpenNebula](https://opennebula.io) is an open-source cloud and edge computing platform for managing virtualized infrastructure, containers, and multi-cloud deployments.
 
