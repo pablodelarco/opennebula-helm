@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     systemd \
     sqlite3 \
     mariadb-client \
-    && rm -rf /var/lib/apt/lists/*
+        && rm -rf /var/lib/apt/lists/*
 
 # Add OpenNebula repository pinned to the exact release version, so apt
 # installs precisely the version the image tag claims
@@ -48,9 +48,13 @@ RUN apt-get update && RUNLEVEL=1 apt-get install -y --no-install-recommends \
     opennebula-flow \
     opennebula-gate \
     opennebula-tools \
+    opennebula-form \
+    opennebula-ks \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/lib/node_modules/npm /usr/lib/node_modules/corepack \
-       /usr/bin/npm /usr/bin/npx /usr/bin/corepack
+       /usr/bin/npm /usr/bin/npx /usr/bin/corepack \
+    && mkdir -p /usr/share/one/one-skel \
+    && cp -a /var/lib/one/. /usr/share/one/one-skel/
 
 # Preserve remotes directory before PV mount overwrites it
 # The remotes directory contains scheduler scripts needed by oned

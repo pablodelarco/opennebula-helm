@@ -3,7 +3,7 @@
 
 ## Image configuration
 image:
-  repository: pablodelarco/opennebula
+  repository: opennebula/opennebula
   ## Defaults to the chart's appVersion when empty, so each chart release
   ## deploys the exact OpenNebula version it was published for
   tag: ""
@@ -31,34 +31,11 @@ opennebula:
   ## For external hypervisors, set to LoadBalancer IP or NodePort-accessible IP
   monitorAddress: ""
 
-## MariaDB subchart configuration
-## ref: https://github.com/bitnami/charts/tree/main/bitnami/mariadb
-mariadb:
-  enabled: true
-  architecture: standalone
-  auth:
-    database: opennebula
-    username: oneadmin
-    ## Password is auto-generated if not set
-    # password: ""
-  primary:
-    persistence:
-      enabled: true
-      size: 8Gi
-
-## External database configuration (when mariadb.enabled=false)
-## Required fields when using external database
-externalDatabase:
-  host: ""
-  port: 3306
-  database: opennebula
-  username: oneadmin
-  ## Password for external database
-  password: ""
-  ## Or use existing secret (takes precedence over password)
-  ## Secret must contain key 'mariadb-password'
-  existingSecret: ""
-
+## Database
+## This chart deploys OpenNebula with the SQLite backend, which is the default
+## for a stock OpenNebula front-end and needs no external database. The file
+## lives on the persistent volume at /var/lib/one/one.db, so it survives pod
+## restarts. This keeps the chart self-contained: install it and it works.
 ## Persistence for OpenNebula data (/var/lib/one)
 persistence:
   enabled: true
@@ -129,13 +106,20 @@ vnm:
 
 ## Resource limits and requests
 ## No defaults - set based on your environment
-resources: {}
-  # limits:
-  #   cpu: 2
-  #   memory: 4Gi
-  # requests:
-  #   cpu: 500m
-  #   memory: 1Gi
+## Resource requests and limits for the OpenNebula front-end container.
+## Measured idle usage of the full stack (oned + fireedge + oneflow + onegate
+## + monitoring drivers) is ~500 MiB and ~15m CPU with no hosts and no VMs.
+## Memory grows with the number of hosts, VMs and FireEdge sessions, so the
+## request leaves ~2x headroom and the limit allows a small/medium cloud.
+## OpenNebula does not publish a front-end sizing table; these come from
+## measurement. Raise the limit for larger infrastructures.
+resources:
+  requests:
+    cpu: 250m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
 
 ## Pod security context
 podSecurityContext: {}

@@ -1,8 +1,7 @@
 OpenNebula has been installed!
 
-{{- if .Values.mariadb.enabled }}
-MariaDB is deployed as a subchart.
-{{- end }}
+Database: SQLite (default), stored on the persistent volume at
+/var/lib/one/one.db. No external database is required.
 
 To access the OpenNebula web UI (FireEdge/Sunstone):
 
