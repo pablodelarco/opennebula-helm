@@ -2,281 +2,198 @@
 
 # OpenNebula Helm Chart
 
-A production-ready Helm chart for deploying OpenNebula on Kubernetes.
+A Helm chart and container image for running an **OpenNebula front-end** on Kubernetes.
 
 [![Helm](https://img.shields.io/badge/Helm-3.x-blue)](https://helm.sh)
 [![OpenNebula](https://img.shields.io/badge/OpenNebula-7.4-green)](https://opennebula.io)
-[![Docker](https://img.shields.io/docker/pulls/pablodelarco/opennebula)](https://hub.docker.com/r/pablodelarco/opennebula)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/docker/pulls/opennebula/opennebula)](https://hub.docker.com/r/opennebula/opennebula)
 
 </div>
 
-## Why This Chart?
+> **Community-maintained. Not an official OpenNebula Systems product.**
+> This project is maintained by the community on a best-effort basis. Issues and
+> fixes are handled by community contributors, not by OpenNebula Systems. Do not
+> open support tickets for it. For a supported deployment, follow the official
+> documentation at [docs.opennebula.io](https://docs.opennebula.io).
 
-OpenNebula is powerful but complex to deploy. This chart solves the hard problems:
+## What this is
 
-- **No systemd in containers** — OpenNebula expects systemd, but containers don't have it. We use supervisord to manage all services cleanly.
-- **Database included** — MariaDB deployed automatically as a subchart.
-- **Persistent storage** — Data survives pod restarts and upgrades.
-- **Auto-updating** — CI/CD pipeline detects new OpenNebula releases and builds fresh images.
+A containerized **OpenNebula front-end**: the control plane only. Virtual machines
+run on external hypervisor nodes that you attach to it.
 
-## Features
+- **Front-end only, by construction.** There is no `libvirt` and no `qemu` inside
+  the image, and no host is registered at startup. VMs cannot run in this
+  container, which keeps the control plane small and predictable.
+- **SQLite by default.** Exactly like a stock OpenNebula front-end. No external
+  database is required and nothing else has to be deployed first.
+- **Batteries included.** Ships **OneForm** (`oneprovision`, `oneprovider`) to
+  provision remote hosts, and **OneKS** to deploy Kubernetes clusters on them.
+- **Readable logs.** Every service writes to the container's stdout, so
+  `kubectl logs` shows real errors, including `oned`'s own log. No shell access
+  into the pod is needed to diagnose a failure.
 
-### One-Command Deployment
-```bash
-helm install opennebula opennebula/opennebula
-```
-Deploys the complete OpenNebula control plane: oned, Sunstone, FireEdge, Scheduler, and MariaDB.
-
-### Production Ready
-- StatefulSet for stable network identity
-- Persistent volumes for data durability
-- Secrets management for credentials
-- Health checks and readiness probes
-
-### Flexible Configuration
-- Ingress support for external access
-- External database option for managed services
-- Customizable resource limits
-- Multiple storage class support
-
-## Installation
-
-### Quick Start
+## Quick start
 
 ```bash
-# Add the Helm repository
 helm repo add opennebula https://pablodelarco.github.io/opennebula-helm
 helm repo update
-
-# Install with defaults
 helm install opennebula opennebula/opennebula
+```
 
-# Or install with custom values
-helm install opennebula opennebula/opennebula -f values.yaml
+That is the whole installation. No database, no secrets, no values file.
 
-# Access the UI
+Access the UI:
+
+```bash
 kubectl port-forward svc/opennebula 8080:2616
 ```
 
-Open http://localhost:8080/fireedge/sunstone
+Then open http://localhost:8080/fireedge and log in as `oneadmin`. The default
+password is `opennebula`; override it with `--set opennebula.adminPassword=...`.
 
-**Remote access via SSH tunnel:**
-
-If you're connecting to the cluster via SSH, set up a tunnel to access the UI from your local machine:
+### Docker, without Kubernetes
 
 ```bash
-# On the cluster node - start port-forward bound to all interfaces
-kubectl port-forward svc/opennebula 8080:2616 --address 0.0.0.0 &
-
-# On your local machine - create SSH tunnel
-ssh -L 8080:localhost:8080 user@cluster-node
-
-# Open in your browser
-# http://localhost:8080/fireedge/sunstone
+docker run -d --name opennebula \
+  -p 2616:2616 -p 2633:2633 \
+  -v one-data:/var/lib/one \
+  opennebula/opennebula:7.4.0
 ```
-
-Get the admin password:
-```bash
-kubectl get secret opennebula-credentials -o jsonpath='{.data.oneadmin-password}' | base64 -d
-```
-
-### Custom Configuration
-
-Modify your [values.yaml](charts/opennebula/values.yaml):
-
-```yaml
-## Image configuration
-image:
-  repository: pablodelarco/opennebula
-  tag: ""  # empty = chart appVersion (pinned OpenNebula release)
-  pullPolicy: IfNotPresent
-
-## OpenNebula settings
-opennebula:
-  adminPassword: "your-secure-password"
-
-## MariaDB subchart configuration
-mariadb:
-  enabled: true
-  auth:
-    database: opennebula
-    username: oneadmin
-  primary:
-    persistence:
-      enabled: true
-      size: 8Gi
-
-## External database (when mariadb.enabled=false)
-externalDatabase:
-  host: ""
-  port: 3306
-  database: opennebula
-  username: oneadmin
-  password: ""
-
-## Persistence for OpenNebula data
-persistence:
-  enabled: true
-  size: 20Gi
-  accessMode: ReadWriteOnce
-
-## Service configuration
-service:
-  type: ClusterIP
-
-## Ingress configuration
-ingress:
-  enabled: false
-  className: ""
-  hostname: opennebula.local
-  tls:
-    enabled: false
-    secretName: ""
-
-## Resource limits
-resources: {}
-  # limits:
-  #   cpu: 2
-  #   memory: 4Gi
-  # requests:
-  #   cpu: 500m
-  #   memory: 1Gi
-
-## Node placement
-nodeSelector: {}
-tolerations: []
-affinity: {}
-```
-
-Install:
-```bash
-helm install opennebula opennebula/opennebula -f values.yaml
-```
-
-See [charts/opennebula/values.yaml](charts/opennebula/values.yaml) for all options.
 
 ## Architecture
 
 ```mermaid
-graph LR
+graph TB
     User(("👤 User"))
-    Hyp["🖥️ KVM<br/>Hypervisors"]
+    Hyp["🖥️ KVM Hypervisors<br/>(external)"]
 
     subgraph k8s["Kubernetes Cluster"]
         Ingress["Ingress<br/>(optional)"]
 
         subgraph one["OpenNebula StatefulSet"]
-            nginx["nginx proxy<br/>:8080"]
+            nginx["nginx proxy :8080"]
             oned["oned :2633"]
+            sched["one_sched"]
             fe["FireEdge :2616"]
-            sun["Sunstone :9869"]
-            sched["mm_sched"]
             flow["OneFlow :2474"]
             gate["OneGate :5030"]
+            form["OneForm :13013"]
+            ks["OneKS :10780"]
             mon["Monitord :4124"]
-            pvc1[("PVC 20Gi")]
-        end
-
-        subgraph db["MariaDB StatefulSet"]
-            maria["MariaDB :3306"]
-            pvc2[("PVC 8Gi")]
+            pvc[("PVC 20Gi<br/>SQLite + state")]
         end
     end
 
     User -->|HTTPS| Ingress --> nginx --> fe
-    oned -->|"MySQL"| maria
     oned <-->|"SSH :22"| Hyp
     Hyp -->|"UDP :4124"| mon
+    form -.->|provisions| Hyp
 ```
 
-## Adding Hypervisor Hosts
+Two Services are created. The regular ClusterIP is for clients (UI, OneFlow,
+OneGate). The **headless** Service gives the pod a stable DNS name, which is the
+address advertised to hypervisors so they always find the front-end at the same
+place even after a restart.
 
-OpenNebula manages VMs on external hypervisor hosts via SSH. The frontend (running in Kubernetes) connects to hypervisors to deploy and manage VMs.
+## Configuration
 
-### Step 1: Get the SSH public key
+| Value | Default | Description |
+|---|---|---|
+| `image.repository` | `opennebula/opennebula` | Image repository |
+| `image.tag` | `""` | Defaults to the chart's `appVersion` |
+| `opennebula.adminPassword` | `opennebula` | Password for `oneadmin` |
+| `opennebula.hostname` | `""` | Address advertised to hypervisors. Defaults to the StatefulSet FQDN |
+| `opennebula.monitorAddress` | `""` | Where hypervisors send monitoring data |
+| `persistence.enabled` | `true` | Persist `/var/lib/one` |
+| `persistence.size` | `20Gi` | Volume size |
+| `resources` | 1Gi / 250m requests | Measured idle usage is ~500 MiB and ~15m CPU |
+| `ingress.enabled` | `false` | Expose FireEdge through an Ingress |
+
+Container environment variables are documented in
+[`docker/README.md`](docker/README.md), including `DB_BACKEND` (set it to
+`mysql` if you prefer an external database) and `AUTO_UPDATE_ADDONS`.
+
+## Adding hypervisor hosts
+
+OpenNebula manages VMs on external hosts over SSH.
+
+**1. Get the front-end's public key**
 
 ```bash
-kubectl exec -n opennebula opennebula-0 -c opennebula -- cat /var/lib/one/.ssh/id_rsa.pub
+kubectl exec opennebula-0 -c opennebula -- cat /var/lib/one/.ssh/id_rsa.pub
 ```
 
-Copy this key - you'll need it in the next step.
-
-### Step 2: Configure the hypervisor
-
-On each hypervisor host (the server where VMs will run), run:
+**2. Prepare the hypervisor** (Ubuntu 24.04)
 
 ```bash
-# Create oneadmin user
 sudo useradd -m -d /var/lib/one -s /bin/bash oneadmin
-
-# Setup SSH
-sudo mkdir -p /var/lib/one/.ssh
-sudo chmod 700 /var/lib/one/.ssh
-echo "PASTE_SSH_KEY_FROM_STEP_1" | sudo tee /var/lib/one/.ssh/authorized_keys
+sudo install -d -m 700 -o oneadmin -g oneadmin /var/lib/one/.ssh
+echo "PASTE_KEY_FROM_STEP_1" | sudo tee /var/lib/one/.ssh/authorized_keys
 sudo chmod 600 /var/lib/one/.ssh/authorized_keys
 sudo chown -R oneadmin:oneadmin /var/lib/one
 
-# Install OpenNebula node packages (Ubuntu 24.04)
-# IMPORTANT: node packages must match the frontend version deployed by the
-# chart (the chart's appVersion). Check with: helm show chart <repo>/opennebula
+# Node packages must match the front-end version (the chart's appVersion)
 wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
-echo "deb https://downloads.opennebula.io/repo/7.4.0/Ubuntu/24.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
-sudo apt update
-sudo apt install -y opennebula-node-kvm
-
-# Add oneadmin to required groups
+echo "deb https://downloads.opennebula.io/repo/7.4/Ubuntu/24.04 stable opennebula" \
+  | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update && sudo apt install -y opennebula-node-kvm
 sudo usermod -aG libvirt,kvm oneadmin
 ```
 
-### Step 3: Add the host to OpenNebula
+**3. Register it**
 
 ```bash
-kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost create <hypervisor-ip> -i kvm -v kvm
-kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost sync --force
+kubectl exec opennebula-0 -c opennebula -- onehost create <ip> -i kvm -v kvm
+kubectl exec opennebula-0 -c opennebula -- onehost list
 ```
 
-### Step 4: Verify
+The host should reach `on`. If it stays in `err`, the front-end name must be
+resolvable from the node and vice versa.
+
+### Automatic provisioning with OneForm
+
+OneForm is installed in the image, so hosts can be provisioned instead of
+prepared by hand:
 
 ```bash
-kubectl exec -n opennebula opennebula-0 -c opennebula -- onehost list
+kubectl exec opennebula-0 -c opennebula -- oneprovider list
+kubectl exec opennebula-0 -c opennebula -- oneprovision create provision.yml
 ```
 
-The host should show `on` status. If it shows `err`, check SSH connectivity:
-
-```bash
-kubectl exec -n opennebula opennebula-0 -c opennebula -- sudo -u oneadmin ssh <hypervisor-ip> hostname
-```
-
-For **automatic host provisioning**, see the [`feature/host-provisioning`](https://github.com/pablodelarco/opennebula-helm/tree/feature/host-provisioning) branch.
+See the [OneForm documentation](https://docs.opennebula.io/7.4/product/cluster_provisioning/)
+for the provider and provision file formats. Kubernetes clusters can then be
+deployed on those hosts with `oneks`.
 
 ## Troubleshooting
 
-### Pods not starting
+All services log to the container's stdout, so this is usually enough:
+
 ```bash
-kubectl describe pod opennebula-0
 kubectl logs opennebula-0 -c opennebula
 ```
 
-### Database connection issues
-```bash
-kubectl logs opennebula-mariadb-0
+`oned`'s own log is included, so start-up failures state their cause directly.
+For example, an unreachable database prints:
+
+```
+FATAL: cannot reach MySQL at <host>:<port> after 120s
+FATAL: check DB_HOST, DB_PORT, credentials, DNS and network policy
 ```
 
-### Check services
+Check which services are up:
+
 ```bash
 kubectl exec opennebula-0 -c opennebula -- supervisorctl status
 ```
 
-### View oned logs
-```bash
-kubectl exec opennebula-0 -c opennebula -- cat /var/log/one/oned.log
-```
+Expect six: `oned`, `fireedge`, `oneflow`, `onegate`, `oneform-server` and
+`oneks-server`.
 
 ## Contributing
 
-Issues and pull requests welcome at [github.com/pablodelarco/opennebula-helm](https://github.com/pablodelarco/opennebula-helm)
+Issues and pull requests are welcome at
+[github.com/pablodelarco/opennebula-helm](https://github.com/pablodelarco/opennebula-helm).
 
 ## License
 
-Apache 2.0 — See [LICENSE](LICENSE) for details.
+Apache 2.0
