@@ -34,7 +34,9 @@ fi
 # ----------------------------------------------------------------------------
 # Authentication Files Setup
 # ----------------------------------------------------------------------------
-ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-oneadmin}"
+# Keep this default in sync with charts/opennebula/values.yaml
+# (opennebula.adminPassword) so the image and the chart agree.
+ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-opennebula}"
 DB_BACKEND="${DB_BACKEND:-sqlite}"
 
 # Always remove sunstone_auth on container start
