@@ -75,3 +75,10 @@ CVE-2026-39883
 # rebuild with a newer grpc-go. Surfaced on rebuilds after 2026-07-14.
 # Path: usr/share/one/remotes-dist/datastore/restic/restic
 GHSA-hrxh-6v49-42gf
+
+# Denial of service in golang.org/x/text v0.28.0 (fixed in 0.39.0), reported
+# against a Go binary vendored by the OpenNebula packages, not built here.
+# There is no OpenNebula 7.4.0 package with a rebuilt binary, so this can only
+# be closed by an upstream rebuild. Re-check on the next OpenNebula release and
+# drop this entry once the shipped binary links a patched x/text.
+CVE-2026-56852
