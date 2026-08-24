@@ -21,6 +21,21 @@ if [ ! -d /var/lib/one/remotes ]; then
 fi
 
 # ----------------------------------------------------------------------------
+# Clear the stale oned lock
+# ----------------------------------------------------------------------------
+# oned takes a lock at /var/lock/one/one and removes it on a clean shutdown.
+# A SIGKILL leaves it behind, and the next start dies immediately with
+#
+#   Error: Cannot start oned, opening lock file /var/lock/one/one
+#
+# exit 255, until supervisord gives up and the container is stuck for good.
+# Hard kills are routine (OOM kill, node eviction, `docker kill`, a grace
+# period that runs out), so the lock has to go before oned is spawned.
+# Nothing else runs at this point: this script is PID 1 and supervisord has
+# not started yet, so no live oned can own this file.
+rm -f /var/lock/one/one
+
+# ----------------------------------------------------------------------------
 # SSH Key Generation for oneadmin
 # ----------------------------------------------------------------------------
 if [ ! -f /var/lib/one/.ssh/id_rsa ]; then
@@ -39,73 +54,96 @@ fi
 ONEADMIN_PASSWORD="${ONEADMIN_PASSWORD:-opennebula}"
 DB_BACKEND="${DB_BACKEND:-sqlite}"
 
-# Always remove sunstone_auth on container start
-# oned creates this file during bootstrap, but if oned crashes mid-bootstrap,
-# the file exists but database is incomplete. oned will error if it sees
-# sunstone_auth but needs to bootstrap. Deleting it ensures clean startup.
-# oned will recreate it automatically.
-rm -f /var/lib/one/.one/sunstone_auth
-
-# Check if this is a fresh installation (no one_key = never bootstrapped)
-FRESH_INSTALL="no"
-if [ ! -f /var/lib/one/.one/one_key ]; then
-    echo "Fresh installation - preparing for clean bootstrap..."
-    FRESH_INSTALL="yes"
-    # Remove SQLite database if present (MySQL databases are external)
-    rm -f /var/lib/one/one.db
-    # Remove oned-generated auth files - will be recreated during bootstrap
-    rm -f /var/lib/one/.one/one_key
-    rm -f /var/lib/one/.one/fireedge_key
-    rm -f /var/lib/one/.one/oneflow_auth
-    rm -f /var/lib/one/.one/onegate_auth
-
-    # Create one_auth with our password BEFORE bootstrap
-    # oned will use this password for the oneadmin user during bootstrap
-    echo "oneadmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/one_auth
-    chown oneadmin:oneadmin /var/lib/one/.one/one_auth
-    chmod 600 /var/lib/one/.one/one_auth
-else
-    echo "Existing installation detected (one_key exists)"
-    # Ensure one_auth exists (may have been deleted manually)
-    if [ ! -f /var/lib/one/.one/one_auth ]; then
-        echo "Restoring one_auth file..."
-        echo "oneadmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/one_auth
-        chown oneadmin:oneadmin /var/lib/one/.one/one_auth
-        chmod 600 /var/lib/one/.one/one_auth
+# ----------------------------------------------------------------------------
+# Bootstrap state
+# ----------------------------------------------------------------------------
+# What matters is whether OpenNebula FINISHED initialising its database, not
+# whether it ever started. An aborted first boot leaves .one/one_key behind
+# next to an incomplete database, so keying off that file takes the entrypoint
+# down the "existing installation" path, where it recreates the service
+# password files and oned then refuses to bootstrap:
+#
+#   [Z0][ONE][E]: Password file /var/lib/one/.one/onegate_auth already exists
+#                 but OpenNebula is boostraping the database
+#
+# oned exits 255, supervisord gives up after three tries and the liveness probe
+# restarts the container forever, which is unrecoverable without wiping the
+# volume by hand.
+#
+# Ask the database instead. oned bootstraps while user_pool is empty, so a
+# populated user_pool means the bootstrap completed. Report "unknown" when the
+# database cannot be reached and treat that as "change nothing": never delete
+# state that could not be verified.
+db_bootstrap_state() {
+    if [ "$DB_BACKEND" = "mysql" ]; then
+        if mysql -h"${DB_HOST}" -P"${DB_PORT:-3306}" -u"${DB_USER}" -p"${DB_PASSWORD}" \
+                 -N -B -e "SELECT COUNT(*) FROM user_pool" "${DB_NAME}" 2>/dev/null \
+             | grep -qE '^[1-9]'; then
+            echo bootstrapped
+        elif mysqladmin ping -h"${DB_HOST}" -P"${DB_PORT:-3306}" -u"${DB_USER}" \
+                       -p"${DB_PASSWORD}" --silent 2>/dev/null; then
+            echo empty
+        else
+            echo unknown
+        fi
+        return
     fi
+
+    if [ ! -f /var/lib/one/one.db ]; then
+        echo empty
+    elif sqlite3 /var/lib/one/one.db "SELECT COUNT(*) FROM user_pool" 2>/dev/null \
+           | grep -qE '^[1-9]'; then
+        echo bootstrapped
+    else
+        echo empty
+    fi
+}
+
+BOOTSTRAP_STATE="$(db_bootstrap_state)"
+
+case "$BOOTSTRAP_STATE" in
+    bootstrapped)
+        echo "Database already bootstrapped: keeping the existing credentials"
+        ;;
+    empty)
+        echo "Database not bootstrapped: letting oned create the service credentials"
+        # oned writes these three itself during bootstrap and aborts if it finds
+        # them already in place. Anything here is left over from a failed
+        # attempt, so clear it and let the bootstrap own them.
+        rm -f /var/lib/one/.one/oneflow_auth \
+              /var/lib/one/.one/onegate_auth \
+              /var/lib/one/.one/sunstone_auth
+        ;;
+    *)
+        echo "Database unreachable: leaving credentials untouched"
+        ;;
+esac
+
+# one_auth belongs to us, not to oned: it carries the oneadmin password the
+# bootstrap should adopt, and the CLI reads it afterwards.
+if [ ! -f /var/lib/one/.one/one_auth ]; then
+    echo "oneadmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/one_auth
 fi
+chown oneadmin:oneadmin /var/lib/one/.one/one_auth
+chmod 600 /var/lib/one/.one/one_auth
 
 # Export ONE_AUTH for CLI tools
 export ONE_AUTH=/var/lib/one/.one/one_auth
 
-# Create service auth files if they don't exist.
-# IMPORTANT: skip this on a fresh installation. oned generates these files
-# itself during bootstrap and refuses to bootstrap when they already exist
-# ("Password file ... already exists but OpenNebula is boostraping the
-# database"), which leaves oned crash-looping with exit status 255.
-if [ "$FRESH_INSTALL" = "yes" ]; then
-    echo "Fresh install: leaving service auth files to oned bootstrap"
-    rm -f /var/lib/one/.one/oneflow_auth \
-          /var/lib/one/.one/onegate_auth \
-          /var/lib/one/.one/sunstone_auth
-fi
-
-if [ "$FRESH_INSTALL" != "yes" ] && [ ! -f /var/lib/one/.one/oneflow_auth ]; then
-    echo "Creating OneFlow auth file..."
-    echo "serveradmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/oneflow_auth
-    chown oneadmin:oneadmin /var/lib/one/.one/oneflow_auth
-    chmod 600 /var/lib/one/.one/oneflow_auth
-fi
-
-if [ "$FRESH_INSTALL" != "yes" ] && [ ! -f /var/lib/one/.one/onegate_auth ]; then
-    echo "Creating OneGate auth file..."
-    echo "serveradmin:${ONEADMIN_PASSWORD}" > /var/lib/one/.one/onegate_auth
-    chown oneadmin:oneadmin /var/lib/one/.one/onegate_auth
-    chmod 600 /var/lib/one/.one/onegate_auth
-fi
-
-# Note: sunstone_auth is created by oned during bootstrap
-# We don't create it here as oned will create it with the proper serveradmin token
+# The service password files (oneflow_auth, onegate_auth, sunstone_auth,
+# oneform_auth, oneks_auth) are deliberately NOT created here.
+#
+# oned generates them during bootstrap, each holding a random serveradmin
+# token. Writing "serveradmin:${ONEADMIN_PASSWORD}" in their place yields a
+# credential the server cannot decrypt, and every call then fails with
+#
+#   [Z0][AuM][E]: Auth Error: bad decrypt
+#   [one.documentpool.info] User couldn't be authenticated, aborting call.
+#
+# while supervisord still reports the service as RUNNING, so the breakage is
+# invisible to any process-level health check. Deleting them on an already
+# bootstrapped database is just as bad: oned only recreates them at bootstrap,
+# so the file stays missing until the volume is wiped.
 
 
 # ----------------------------------------------------------------------------
@@ -179,7 +217,7 @@ fi
 # and is a no-op when the schema is already current. On failure, warn and
 # continue: oned logs the exact schema mismatch itself, and the backup
 # allows a manual restore.
-if [ -f /var/lib/one/.one/one_key ]; then
+if [ "$BOOTSTRAP_STATE" = "bootstrapped" ]; then
     BACKUP_DIR=/var/lib/one/backups/db
     mkdir -p "$BACKUP_DIR"
     chown -R oneadmin:oneadmin "$BACKUP_DIR"
