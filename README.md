@@ -134,7 +134,7 @@ sudo chown -R oneadmin:oneadmin /var/lib/one
 
 # Node packages must match the front-end version (the chart's appVersion)
 wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
-echo "deb https://downloads.opennebula.io/repo/7.4/Ubuntu/24.04 stable opennebula" \
+echo "deb https://downloads.opennebula.io/repo/7.4.1/Ubuntu/24.04 stable opennebula" \
   | sudo tee /etc/apt/sources.list.d/opennebula.list
 sudo apt update && sudo apt install -y opennebula-node-kvm
 sudo usermod -aG libvirt,kvm oneadmin
